@@ -1,0 +1,38 @@
+{
+	"name": "lastgo",
+	"version": "1.0.0",
+	"description": "",
+	"main": "index.js",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1",
+		"SKLT_build-dev": "webpack --mode=development --config \"$SKLT_PROJECT_DIR./node_modules/project-skeleton/webpack/default.config.js\" --env.PROJECT_DIR \"$SKLT_PROJECT_DIR\"  --env.src ",
+		"SKLT_build-prod": "webpack --mode=production --config \"$SKLT_PROJECT_DIR./node_modules/project-skeleton/webpack/default.config.js\" --env.PROJECT_DIR \"$SKLT_PROJECT_DIR\" --env.src ",
+		"SKLT_local-ci-dev": "sudo gitlab-runner exec docker build-dev",
+		"SKLT_add-subproject": "$SKLT_PROJECT_DIR./node_modules/project-skeleton/scripts/add-subproject.sh",
+		"SKLT_init-git": "$SKLT_PROJECT_DIR./node_modules/project-skeleton/scripts/init-git.sh",
+		"SKLT_init-gitlab-ci": "$SKLT_PROJECT_DIR./node_modules/project-skeleton/scripts/init-gitlab-ci.sh",
+		"SKLT_init-skeletons": "$SKLT_PROJECT_DIR./node_modules/project-skeleton/scripts/init-skeletons.sh"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Neckara/LastGo.git"
+	},
+	"author": "",
+	"license": "ISC",
+	"bugs": {
+		"url": "https://github.com/Neckara/LastGo/issues"
+	},
+	"homepage": "https://github.com/Neckara/LastGo#readme",
+	"dependencies": {
+		"css-loader": "^4.0.0",
+		"extract-loader": "^5.1.0",
+		"file-loader": "^6.0.0",
+		"html-loader": "^0.5.5",
+		"html-minifier-loader": "^1.4.1",
+		"prehtml-loader": "^1.3.2",
+		"project-skeleton": "0.0.16",
+		"raw-loader": "^4.0.1",
+		"style-loader": "^1.2.1",
+		"url-loader": "^4.1.0"
+	}
+}

@@ -1,0 +1,5 @@
+{
+	"name": "LastGo Editor",
+	"use_in": ["websites/LastGo"],
+	"confidential": "true"
+}
