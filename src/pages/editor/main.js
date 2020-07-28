@@ -7,3 +7,16 @@ import 'webpack-icons-installer/bootstrap'; // https://www.npmjs.com/package/web
 
 const $ = require('jquery');
 
+
+
+import {BoardCanvas} from 'GUI/LastGo/BoardCanvas.js';
+import {Board} from 'calc/LastGo/Board.js';
+
+
+$( () => {
+
+	let bc = new BoardCanvas( new Board(), $('canvas') );
+
+	bc.redraw();
+
+});
