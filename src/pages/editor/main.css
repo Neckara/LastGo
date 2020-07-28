@@ -1,0 +1,15 @@
+canvas { 
+  height: 100vh; 
+  width: calc( 100vh / 9 * 16 ); 
+  display: block;
+  background-color: blue
+}
+
+#editorMenu {
+	height: 100vh;
+	width: calc( 100vw - 100vh / 9 * 16 );
+	background-color: red;
+	position: absolute;
+	top: 0px;
+	right: 0px;
+}
