@@ -1,9 +1,10 @@
 export class BoardCanvas {
 
-	constructor(board, canvas) {
+	constructor(board, canvas, ressources) {
 		this._board = board;
 
 		this._canvas = canvas;
+		this._ressources = ressources;
 		this._ctx = this._canvas[0].getContext("2d");
 
 		this._highlights = [];
@@ -29,8 +30,6 @@ export class BoardCanvas {
 												);
 		let left_offset = this._loffset = Math.ceil( (this._canvas[0].width - lw - (cw+lw) * size[0])/2);
 		let top_offset = this._toffset = Math.ceil( (this._canvas[0].height - lw - (cw+lw) * size[1])/2);
-
-		console.log(left_offset, boffset);
 
 		// vlines
 		for(let i = 0; i <= size[0]; ++i)
@@ -88,6 +87,32 @@ export class BoardCanvas {
 		}
 	}
 
+	_drawElements(type) {
+
+		let elements = this._board.getElements(type);
+
+		let size = this._bsize;
+
+		for(let key in elements) {
+
+			let name = elements[key];
+			let coords = Array.from( key.split('x'), e => parseInt(e) );
+
+			if(coords[0] < 0 || coords[0] >= size[0] || coords[1] < 0 || coords[1] >= size[1])
+				continue;
+
+			let imgs = typeof name == 'string' ?
+											  [ name ]
+											: Object.values(elements[key])
+
+			for(let img of imgs) {
+				img = this._ressources[type][img];
+				this._drawImage(img, ...coords);
+			}
+		}
+
+	}
+
 	redraw() {
 
 		this._canvas[0].width = this._canvas.width();
@@ -95,6 +120,10 @@ export class BoardCanvas {
 
 		this._drawBackground();
 		this._drawGrid();
+
+		this._drawElements('links');
+		this._drawElements('bases');
+		this._drawElements('pawns');
 
 
 		this._drawHighlight();

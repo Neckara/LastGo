@@ -25,5 +25,19 @@ export class Editor {
 		$('#board_width').trigger('input');
 
 
+
+		// Add Element
+		// Todo select element./ remove element
+		$('canvas').mouseup( (ev) => {
+			let px = ev.pageX;
+			let py = ev.pageY;
+			let coords = this._canvas.PixelsToCoord(px, py);
+
+			if(coords == null)
+				return;
+
+			this._board.addElement('pawns', 'default', ...coords);
+			this._canvas.redraw();
+		});
 	}
 }
