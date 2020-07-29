@@ -25,6 +25,19 @@ export class Editor {
 
 		this._selectedElement = null;
 		this._lastAngle = 'r';
+		
+		let players = {
+			'Neutral': '#000080ff',
+			'Player 1': '#eeec80ff',
+			'Player 2': 'red',
+			'Player 3': 'gray',
+			'Player 4': 'orange'
+		};
+
+		for(let player in players)
+			this._addPlayer(player, players[player]);
+
+		$('#players .player').first().trigger('click');
 
 		// Grid size
 		$('#board_width, #board_height').on('input', () => {
@@ -86,6 +99,9 @@ export class Editor {
 			
 			this._canvas.redraw();
 		});
+
+
+
 		$('canvas').mouseup( (ev) => {
 
 			if(this._selectedElement === null)
@@ -109,13 +125,14 @@ export class Editor {
 			}
 
 			if( ev.which == 1) {
-				this._board.addElement(... this._selectedElement, ...coords, z);
+				this._board.addElement(this.selectedPlayer(), ... this._selectedElement, ...coords, z);
 				this._canvas.redraw();
 			}
 		});
 
 		let pthis = this;
 
+		// Select element
 		$('#select_Elements').children().each( function() {
 
 			let elem = $(this);
@@ -152,10 +169,46 @@ export class Editor {
 
 		});
 
-
 		this._showLinks();
 	}
 
+
+	selectedPlayer() {
+		return $('#players .player.selected').prop('title');
+	}
+
+	_addPlayer(name, color) {
+
+		this._board.addPlayer(name, color);
+
+		let parent = $('#players');
+
+		let player = $('<span/>');
+		player.addClass('player');
+		player.prop('title', name);
+
+		player.css('background-color', color);
+
+		player.click( (ev) => {
+
+			$('#players .player').removeClass('selected');
+			player.addClass('selected');
+
+			let pthis = this;
+			$('#select_Elements img').each( function () {
+
+				let elem = $(this);
+
+				let type = elem.attr('data-type');
+				let name = elem.attr('data-name');
+
+				let new_content = pthis._ressources[type][name].colorContent( player.css('background-color') );
+				elem.attr('src', new_content);
+			});
+		});
+
+		parent.append(player);
+	}
 
 	_showLinks() {
 

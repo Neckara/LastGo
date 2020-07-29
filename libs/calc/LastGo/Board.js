@@ -4,6 +4,13 @@ export class Board {
 
 		this._boardSize = [9,9];
 		this._elements = {};
+
+
+		this._players = {};
+	}
+
+	addPlayer(name, color) {
+		this._players[name] = color;
 	}
 
 	removeElement(type, x, y, z = null) {
@@ -15,15 +22,15 @@ export class Board {
 			delete this._elements[type][x + 'x' + y][z];
 	}
 
-	addElement(type, name, x, y, z = null) {
+	addElement(owner, type, name, x, y, z = null) {
 
 		this._elements[type] = this._elements[type] || {};
 
 		if( z === null )
-			return this._elements[type][x + 'x' + y] = name;
+			return this._elements[type][x + 'x' + y] = name + '@' + owner;
 		
 		this._elements[type][x + 'x' + y] = this._elements[type][x + 'x' + y] || {};
-		return this._elements[type][x + 'x' + y][z] = name;
+		return this._elements[type][x + 'x' + y][z] = name + '@' + owner;
 	}
 
 	getElements(type) {
@@ -32,6 +39,10 @@ export class Board {
 	
 	boardSize() {
 		return this._boardSize;
+	}
+
+	players() {
+		return this._players;
 	}
 
 	setBoardSize(w, h) {

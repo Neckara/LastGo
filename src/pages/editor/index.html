@@ -11,10 +11,10 @@
 	<body>
 		<canvas></canvas>
 		<div id='editorMenu'>
-			<div><strong>Editor: </strong></div>
+			<h1>Editor</h1>
 
 			<form>
-				
+				<strong>Meta-data</strong>
 				<div class="form-group row">
 					<label class="col-sm-2 col-form-label">Grid Size:</label>
 					<div class="col-sm-10">
@@ -23,15 +23,19 @@
 					<input type="number" min="1" value="9" class="form-control" id="board_height">
 					</div>
 				</div>
+				
+				<strong>Players</strong>
+				<div id='players'></div>
 
+				<strong>Elements</strong>
 				<ul class="nav nav-tabs">
-					<li class="active"><a data-toggle="tab" href="#select_Background">Background</a></li>
+					<li class="active"><a data-toggle="tab" href="#select_Backgrounds">Backgrounds</a></li>
 					<li><a data-toggle="tab" href="#select_Links">Links</a></li>
 					<li><a data-toggle="tab" href="#select_Bases">Bases</a></li>
 					<li><a data-toggle="tab" href="#select_Pawns">Pawns</a></li>
 				</ul>
 				<div class="tab-content" id='select_Elements'>
-					<div id="select_Background" class="tab-pane fade show active"></div>
+					<div id="select_Backgrounds" class="tab-pane fade show active"></div>
 					<div id="select_Links" class="tab-pane fade"></div>
 					<div id="select_Bases" class="tab-pane fade"></div>
 					<div id="select_Pawns" class="tab-pane fade"></div>

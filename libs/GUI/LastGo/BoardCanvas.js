@@ -1,3 +1,5 @@
+import {Ressources} from './Ressources.js';
+
 export class BoardCanvas {
 
 	constructor(board, canvas, ressources) {
@@ -53,7 +55,7 @@ export class BoardCanvas {
 		let x = Math.floor( (px - this._loffset - this._lw) / (this._cw + this._lw) );
 		let y = Math.floor( (py - this._toffset - this._lw) / (this._cw + this._lw) );
 
-		let bs = this._bsize;
+		let bs = this._board.boardSize();
 
 		if( x < 0 || y < 0 || x >= bs[0] || y >= bs[1] )
 			return null;
@@ -83,9 +85,9 @@ export class BoardCanvas {
 		return 360 - angle;
 	}
 
-	_drawImage(img, x, y) {
+	_drawImage(img, owner, x, y) {
 
-		img = img.image() || img;
+		img = img.image(owner) || img;
 
 		let pos = this._CoordToPixels(x, y);
 		this._ctx.drawImage(img, 0, 0, img.width, img.height, pos[0], pos[1], this._cw, this._cw);
@@ -180,14 +182,19 @@ export class BoardCanvas {
 											: Object.values(elements[key])
 
 			for(let img of imgs) {
-				img = this._ressources[type][img];
-				this._drawImage(img, ...coords);
+
+				img = img.split('@');
+				img[0] = this._ressources[type][img[0]];
+
+				this._drawImage(...img, ...coords);
 			}
 		}
 
 	}
 
-	redraw() {
+	async redraw() {
+
+		await Ressources.loadAllColored(this._ressources, this._board.players() );
 
 		this._canvas[0].width = this._canvas.width();
 		this._canvas[0].height = this._canvas.height();

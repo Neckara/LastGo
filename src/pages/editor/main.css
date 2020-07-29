@@ -25,11 +25,27 @@ canvas {
 }
 
 #select_Elements img:hover {
-	border: 1px solid black;
 	opacity: 0.5;
 }
 
 
 #select_Elements img.selected {
 	background-color: yellow;
+}
+
+#players .player {
+	height: 64px;
+	width: 64px;
+	display:inline-block;
+	background-clip: padding-box;
+	border: 2px solid transparent;
+}
+
+
+#players .player:hover {
+	opacity: 0.5;
+}
+
+#players .player.selected {
+	border: 2px solid yellow;
 }
