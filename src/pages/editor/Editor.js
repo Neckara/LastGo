@@ -2,6 +2,18 @@ const $ = require('jquery');
 
 window.$ = $;
 
+let angles = {
+	'-22.5': 'r',
+	'337.5': 'r',
+	'22.5': 'rt',
+	'67.5': 't',
+	'112.5': 'lt',
+	'157.5': 'l',
+	'202.5': 'lb',
+	'247.5': 'b',
+	'292.5': 'rb'
+};
+
 export class Editor {
 
 
@@ -12,6 +24,7 @@ export class Editor {
 		this._ressources = ressources;
 
 		this._selectedElement = null;
+		this._lastAngle = 'r';
 
 		// Grid size
 		$('#board_width, #board_height').on('input', () => {
@@ -41,9 +54,9 @@ export class Editor {
 			let py = ev.pageY;
 			let coords = this._canvas.PixelsToCoord(px, py);
 
-			if(coords !== null) {
+			this._canvas.clearHighlights();
 
-				this._canvas.clearHighlights();
+			if(coords !== null) {
 
 				let angle = [];
 				if( this._selectedElement && this._selectedElement[0] == 'links') {
@@ -61,13 +74,17 @@ export class Editor {
 					beg_angle = (beg_angle + offset) % 360;
 					end_angle = (end_angle + offset) % 360;
 
-					angle = [beg_angle, end_angle]; //TODO
+					this._lastAngle = angles[beg_angle];
+					this._showLinks();
+
+					angle = [beg_angle, end_angle];
 				}
 
 
 				this._canvas.highlight(...coords, ...angle);
-				this._canvas.redraw();
 			}
+			
+			this._canvas.redraw();
 		});
 		$('canvas').mouseup( (ev) => {
 
@@ -81,15 +98,18 @@ export class Editor {
 			if(coords == null)
 				return;
 
+			let z;
+			if( this._selectedElement[0] == 'links')
+				z = this._lastAngle;
+
 			if( ev.which == 3) {
 
-				this._board.removeElement(this._selectedElement[0], ...coords);
+				this._board.removeElement(this._selectedElement[0], ...coords, z);
 				this._canvas.redraw();
-				ev.preventDefault();
 			}
 
 			if( ev.which == 1) {
-				this._board.addElement(... this._selectedElement, ...coords);
+				this._board.addElement(... this._selectedElement, ...coords, z);
 				this._canvas.redraw();
 			}
 		});
@@ -116,6 +136,9 @@ export class Editor {
 				img.attr('title', name);
 				img.prop('id', 'Select_' + type + '-' + name.replace(/\./g, '-') );
 
+				if(type == 'links')
+					img.addClass('links_' + name.split('_').slice(-1)[0]);
+
 				img.click( () => {
 
 					if( pthis._selectedElement !== null) {
@@ -128,5 +151,23 @@ export class Editor {
 			}
 
 		});
+
+
+		this._showLinks();
+	}
+
+
+	_showLinks() {
+
+		$('#select_Links img').addClass('d-none');
+		$('#select_Links img.links_' + this._lastAngle).removeClass('d-none');
+
+		if( this._selectedElement && this._selectedElement[0] == 'links') {
+
+			let newSelected = this._selectedElement[1].split('_');
+			newSelected[newSelected.length-1] = this._lastAngle;
+			newSelected = newSelected.join('_')
+			$('#select_Links img#Select_links-' + newSelected).trigger('click');
+		}
 	}
 }
