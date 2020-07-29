@@ -10,6 +10,10 @@ export class BoardCanvas {
 		this._ctx = this._canvas[0].getContext("2d");
 
 		this._highlights = [];
+
+		$(window).on('resize', () => {
+			this.redraw();
+		});
 	}
 
 	_drawBackground(changes = null) {

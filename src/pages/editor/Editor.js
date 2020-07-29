@@ -129,10 +129,6 @@ export class Editor {
 
 			this._canvas.draw();
 			this._saveCurrent();
-
-			let cur = $('#selectMap').val();
-			if( cur.startsWith('built-in:') || cur.startsWith('import:') )
-				$('#selectMap').val('current');
 		});
 
 		let pthis = this;
@@ -184,10 +180,48 @@ export class Editor {
 			this._saveCurrent();
 		});
 
+		$('#delete-btn').click( (ev) => {
+
+			ev.preventDefault();
+
+			let map = $('#selectMap').val();
+
+			let maps = JSON.parse(localStorage.getItem('maps') ) || {};
+			delete maps[map];
+			localStorage.setItem('maps', JSON.stringify(maps, null, 0));
+
+			$("#selectMap option[value='"+ map +"']").remove();
+
+			$('#selectMap').val('current');
+			$('#selectMap').trigger('change');
+		});
+
+		$('#save-btn').click( (ev) => {
+
+			ev.preventDefault();
+			let map = $('#selectMap').val();
+
+			if( map == 'current' || map.startsWith('built-in:') || map.startsWith('import:') ) {
+				
+				map = prompt("Please enter a name for your map", "");
+				if( ! map )
+					return;
+
+				map = 'saved:' + map;
+
+				$('#selectMap').append( new Option(map, map, true, true) );
+				$('#selectMap').val(map);
+			}
+
+			let maps = JSON.parse(localStorage.getItem('maps') ) || {};
+			maps[map] = Board.maps[map] = JSON.parse(this._board.export());
+			localStorage.setItem('maps', JSON.stringify(maps, null, 0));
+		});
+
 		$('#export-btn').click( (ev) => {
 
 			ev.preventDefault();
-			let data = this._board.serialize();
+			let data = this._board.export();
 
 			download(data, 'map.json', 'json');
 		});
@@ -207,7 +241,7 @@ export class Editor {
 
 			let maps = JSON.parse(localStorage.getItem('maps') ) || {};
 			maps[file] = Board.maps[file];
-			localStorage.setItem('maps', JSON.stringify(maps, null, 0))
+			localStorage.setItem('maps', JSON.stringify(maps, null, 0));
 		});
 
 		this._showLinks();
@@ -227,6 +261,8 @@ export class Editor {
 
 			let selected = $('#selectMap').val();
 
+			$('#delete-btn').prop('disabled', selected == 'current' || selected.startsWith('built-in:') );
+
 			if( selected == 'current') {
 				
 				if( ! this._loadCurrent() ) {
@@ -244,6 +280,11 @@ export class Editor {
 	}
 
 	_saveCurrent() {
+
+		let cur = $('#selectMap').val();
+		if( cur.startsWith('built-in:') || cur.startsWith('import:') )
+			$('#selectMap').val('current');
+
 		localStorage.setItem('maps.current', this._board.export() );
 	}
 

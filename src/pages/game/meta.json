@@ -1,0 +1,5 @@
+{
+	"name": "LastGo",
+	"use_in": ["websites/LastGo"],
+	"confidential": "true"
+}

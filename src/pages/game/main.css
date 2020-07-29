@@ -1,0 +1,52 @@
+body {
+    overflow:hidden;
+}
+
+
+canvas { 
+  height: calc(100vh - 2em); 
+  width: 100vw; 
+  display: block;
+  background-color: blue
+}
+
+#bar {
+	height: 3em;
+	width: 100vw
+}
+
+#players {
+	display: inline-block;
+}
+
+#toolbox {
+	font-size: 2em;
+}
+
+#players .player_img {
+	height: calc(3em - 8px);
+	width: calc(3em - 8px);
+	display:inline-block;
+}
+
+#players .player {
+	display: inline-block;
+	text-align: center;
+	height: 3em;
+	border: 4px solid transparent;
+}
+
+#players .player .score {
+	font-size: 2em;
+	display: inline-block;
+	height: 100%;
+	margin: 0 auto;
+}
+
+#players .player:hover {
+	opacity: 0.5;
+}
+
+#players .player.selected {
+	border: 4px solid yellow;
+}
