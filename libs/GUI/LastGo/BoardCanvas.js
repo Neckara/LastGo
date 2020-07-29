@@ -5,8 +5,9 @@ export class BoardCanvas {
 
 		this._canvas = canvas;
 		this._ctx = this._canvas[0].getContext("2d");
-	}
 
+		this._highlights = [];
+	}
 
 	_drawBackground() {
 
@@ -57,16 +58,29 @@ export class BoardCanvas {
 	}
 
 	_drawImage(img, x, y) {
+
+		img = img.image() || img;
+
 		let pos = this._CoordToPixels(x, y);
 		this._ctx.drawImage(img, 0, 0, img.width, img.height, pos[0], pos[1], this._cw, this._cw);
 	}
 
-	_drawHighlight(x, y) { //TODO REMOVE.
+	clearHighlights() {
+		this._highlights.length = 0;
+	}
 
-		//TODO COLORS.
-		let pos = this._CoordToPixels(x, y);
-		this._ctx.fillStyle = 'rgba(225,225,225,0.5)'; //"black";
-		this._ctx.fillRect(pos[0], pos[1], this._cw, this._cw);
+	highlight(x, y, color = 'rgba(225,225,225,0.5)') {
+
+		this._highlights.push([x, y, color = 'rgba(225,225,225,0.5)']);
+	}
+
+	_drawHighlight() {
+
+		for(let [x, y, color] of this._highlights) {
+			let pos = this._CoordToPixels(x, y);
+			this._ctx.fillStyle = color;
+			this._ctx.fillRect(pos[0], pos[1], this._cw, this._cw);
+		}
 	}
 
 	redraw() {
@@ -76,5 +90,8 @@ export class BoardCanvas {
 
 		this._drawBackground();
 		this._drawGrid();
+
+
+		this._drawHighlight();
 	}
 }
