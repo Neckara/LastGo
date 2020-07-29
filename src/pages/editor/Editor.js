@@ -25,7 +25,7 @@ export class Editor {
 
 		this._selectedElement = null;
 		this._lastAngle = 'r';
-		
+
 		let players = {
 			'Neutral': '#000080ff',
 			'Player 1': '#eeec80ff',
@@ -122,11 +122,13 @@ export class Editor {
 
 				this._board.removeElement(this._selectedElement[0], ...coords, z);
 				this._canvas.redraw();
+				this._saveCurrent();
 			}
 
 			if( ev.which == 1) {
 				this._board.addElement(this.selectedPlayer(), ... this._selectedElement, ...coords, z);
 				this._canvas.redraw();
+				this._saveCurrent();
 			}
 		});
 
@@ -169,9 +171,34 @@ export class Editor {
 
 		});
 
+		$('#clear-btn').click( (ev) => {
+
+			ev.preventDefault();
+
+			this._board.removeAllElements();
+			this._canvas.redraw();
+
+			this._saveCurrent();
+		});
+
 		this._showLinks();
+
+		this._loadCurrent();
 	}
 
+	_saveCurrent() {
+		localStorage.setItem('boards.current', this._board.serialize() );
+	}
+
+	_loadCurrent() {
+
+		let data = localStorage.getItem('boards.current');
+
+		if(data)
+			this._board.unserialize(data);
+
+		this._canvas.redraw();
+	}
 
 	selectedPlayer() {
 		return $('#players .player.selected').prop('title');

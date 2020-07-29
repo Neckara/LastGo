@@ -22,6 +22,10 @@ export class Board {
 			delete this._elements[type][x + 'x' + y][z];
 	}
 
+	removeAllElements() {
+		this._elements = {};
+	}
+
 	addElement(owner, type, name, x, y, z = null) {
 
 		this._elements[type] = this._elements[type] || {};
@@ -47,5 +51,29 @@ export class Board {
 
 	setBoardSize(w, h) {
 		this._boardSize = [w, h];
+	}
+
+
+	serialize() {
+
+		let json = {
+			board_size: this.boardSize(),
+			players: this.players(),
+			elements: this._elements
+		};
+		
+		return JSON.stringify(json, null, 0);
+	}
+
+	unserialize( data ) {
+
+		let json = JSON.parse(data);
+
+		this.setBoardSize( ... json.board_size );
+
+		for(let player in json.players)
+			this.addPlayer(player, json.players[player]);
+
+		this._elements = json.elements;
 	}
 }
