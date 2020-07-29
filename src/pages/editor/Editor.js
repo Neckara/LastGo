@@ -181,6 +181,25 @@ export class Editor {
 			this._saveCurrent();
 		});
 
+		$('#export-btn').click( (ev) => {
+
+			ev.preventDefault();
+			let data = this._board.serialize();
+
+			download(data, 'map.json', 'json');
+		});
+
+		$('#import-btn').click( async (ev) => {
+
+			ev.preventDefault();
+
+			let data = await upload();
+			this._board.unserialize(data);
+
+			this._canvas.redraw();
+			this._saveCurrent();
+		});
+
 		this._showLinks();
 
 		this._loadCurrent();
@@ -250,4 +269,52 @@ export class Editor {
 			$('#select_Links img#Select_links-' + newSelected).trigger('click');
 		}
 	}
+}
+
+
+// https://stackoverflow.com/questions/13405129/javascript-create-and-save-file
+// Function to download data to a file
+function download(data, filename, type) {
+    var file = new Blob([data], {type: type});
+    if (window.navigator.msSaveOrOpenBlob) // IE10+
+        window.navigator.msSaveOrOpenBlob(file, filename);
+    else { // Others
+        var a = document.createElement("a"),
+                url = URL.createObjectURL(file);
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function() {
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);  
+        }, 0); 
+    }
+}
+
+
+async function upload() {
+
+	let input = $('<input type="file" id="file-selector">');
+
+	$('body').append(input);
+	
+	let p = new Promise( (r) => {
+
+		input.on('change', () => {
+			
+			let file = event.target.files[0];
+    		console.log(file);
+
+    		const reader = new FileReader();
+			reader.addEventListener('load', (event) => {
+				console.log(event.target.result);
+				r(event.target.result);
+			});
+			reader.readAsText(file);
+		});
+		input.click();
+	});
+
+	return await p;
 }
