@@ -35,6 +35,40 @@ export class Editor {
 			if(coords != null)
 				ev.preventDefault();
 		});
+
+		$('canvas').mousemove( (ev) => {
+			let px = ev.pageX;
+			let py = ev.pageY;
+			let coords = this._canvas.PixelsToCoord(px, py);
+
+			if(coords !== null) {
+
+				this._canvas.clearHighlights();
+
+				let angle = [];
+				if( this._selectedElement && this._selectedElement[0] == 'links') {
+					angle = this._canvas.PixelsToAngle(px, py);
+
+					let prec = 360/8;
+					let offset = prec/2;
+
+					angle = (angle - offset) % 360;
+
+					let beg_angle = Math.floor( angle / prec) * prec;
+					let end_angle = Math.ceil( angle / prec) * prec;
+
+
+					beg_angle = (beg_angle + offset) % 360;
+					end_angle = (end_angle + offset) % 360;
+
+					angle = [beg_angle, end_angle]; //TODO
+				}
+
+
+				this._canvas.highlight(...coords, ...angle);
+				this._canvas.redraw();
+			}
+		});
 		$('canvas').mouseup( (ev) => {
 
 			if(this._selectedElement === null)
@@ -53,7 +87,6 @@ export class Editor {
 				this._canvas.redraw();
 				ev.preventDefault();
 			}
-			console.log( ev.which );
 
 			if( ev.which == 1) {
 				this._board.addElement(... this._selectedElement, ...coords);

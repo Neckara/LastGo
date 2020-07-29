@@ -61,6 +61,28 @@ export class BoardCanvas {
 		return [x, y];
 	}
 
+	// https://www.mathsisfun.com/polar-cartesian-coordinates.html
+	PixelsToAngle(px, py) {
+
+		let [x, y] = this.PixelsToCoord(px, py);
+		let [tpx, tpy] = this._CoordToPixels(x, y);
+
+		px -= tpx;
+		py -= tpy;
+
+		px = (px - this._cw/2);
+		py = (py - this._cw/2);
+
+		let angle = Math.atan( py / px ) / Math.PI * 180;
+		if( px < 0)
+			angle += 180;
+
+		if( px > 0 &&  py < 0 )
+			angle += 360;
+
+		return 360 - angle;
+	}
+
 	_drawImage(img, x, y) {
 
 		img = img.image() || img;
@@ -73,17 +95,69 @@ export class BoardCanvas {
 		this._highlights.length = 0;
 	}
 
-	highlight(x, y, color = 'rgba(225,225,225,0.5)') {
+	highlight(x, y, beg_angle = null, end_angle = null, color = 'rgba(225,225,225,0.5)') {
 
-		this._highlights.push([x, y, color = 'rgba(225,225,225,0.5)']);
+		if( end_angle === null && beg_angle !== null) {
+			color = beg_angle;
+			beg_angle = null;
+		}
+
+		this._highlights.push([x, y, beg_angle, end_angle, color = 'rgba(225,225,225,0.5)']);
+	}
+
+	_angleToCoord(angle, cx, cy, cw) {
+
+		let isCos = ! (angle > 45 && angle < 135 || angle > 225 && angle < 315);
+
+		angle = 360 - angle;
+		angle = angle / 180 * Math.PI;
+
+		if( isCos )
+			cw = cw / Math.cos(angle);
+		else
+			cw = cw / Math.sin(angle);
+
+		cw = Math.abs(cw);
+
+		let x = cw/2 * Math.cos(angle);
+		let y = cw/2 * Math.sin(angle);
+
+		return [cx + x, cy + y];
 	}
 
 	_drawHighlight() {
 
-		for(let [x, y, color] of this._highlights) {
+		for(let [x, y, beg_angle, end_angle, color] of this._highlights) {
 			let pos = this._CoordToPixels(x, y);
 			this._ctx.fillStyle = color;
-			this._ctx.fillRect(pos[0], pos[1], this._cw, this._cw);
+
+			if( beg_angle == null)
+				this._ctx.fillRect(pos[0], pos[1], this._cw, this._cw);
+			else {
+
+				let cx = pos[0] + this._cw/2;
+				let cy = pos[1] + this._cw/2;
+
+				this._ctx.beginPath();
+			    this._ctx.moveTo(cx, cy);
+
+				this._ctx.lineTo( ... this._angleToCoord(beg_angle, cx, cy, this._cw) );
+
+				if( beg_angle < 45 && end_angle > 45)
+					this._ctx.lineTo( ... this._angleToCoord(45, cx, cy, this._cw) );
+				if( beg_angle < 135 && end_angle > 135)
+					this._ctx.lineTo( ... this._angleToCoord(135, cx, cy, this._cw) );
+				if( beg_angle < 225 && end_angle > 225)
+					this._ctx.lineTo( ... this._angleToCoord(225, cx, cy, this._cw) );
+				if( beg_angle < 315 && end_angle > 315)
+					this._ctx.lineTo( ... this._angleToCoord(315, cx, cy, this._cw) );
+
+			    this._ctx.lineTo( ... this._angleToCoord(end_angle, cx, cy, this._cw) );
+
+			    //this._ctx.moveTo(pos[0], pos[1]);
+			    //this._ctx.lineTo(pos[0], pos[1] + this._cw);
+			    this._ctx.fill();
+			}
 		}
 	}
 

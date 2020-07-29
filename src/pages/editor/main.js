@@ -35,20 +35,6 @@ $( async () => {
 
 	let editor = new Editor(board, bc, Ressources.index);
 
-	canvas.mousemove( (ev) => {
-		let px = ev.pageX;
-		let py = ev.pageY;
-		let coords = bc.PixelsToCoord(px, py);
-
-		if(coords !== null) {
-
-			bc.clearHighlights();
-			bc.highlight(...coords);
-
-			bc.redraw();
-		}
-	});
-
 	drawAgain();
 	bc.redraw();
 
@@ -72,8 +58,6 @@ $( async () => {
 		board.addElement('pawns', 'default', 8, 8);
 		board.addElement('pawns', 'default', 7, 7);
 		board.addElement('pawns', 'default', 6, 7);
-
-		bc.highlight(8,8);
 	}
 
 });
