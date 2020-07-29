@@ -1,12 +1,17 @@
 const $ = require('jquery');
 
+window.$ = $;
 
 export class Editor {
 
 
-	constructor(board, canvas) {
+	constructor(board, canvas, ressources) {
+
 		this._board = board;
 		this._canvas = canvas;
+		this._ressources = ressources;
+
+		this._selectedElement = null;
 
 		// Grid size
 		$('#board_width, #board_height').on('input', () => {
@@ -24,11 +29,17 @@ export class Editor {
 		});
 		$('#board_width').trigger('input');
 
+		$('canvas').on("contextmenu", (ev) => {
 
-
-		// Add Element
-		// Todo select element./ remove element
+			let coords = this._canvas.PixelsToCoord(ev.pageX, ev.pageY);
+			if(coords != null)
+				ev.preventDefault();
+		});
 		$('canvas').mouseup( (ev) => {
+
+			if(this._selectedElement === null)
+				return;
+
 			let px = ev.pageX;
 			let py = ev.pageY;
 			let coords = this._canvas.PixelsToCoord(px, py);
@@ -36,8 +47,53 @@ export class Editor {
 			if(coords == null)
 				return;
 
-			this._board.addElement('pawns', 'default', ...coords);
-			this._canvas.redraw();
+			if( ev.which == 3) {
+
+				this._board.removeElement(this._selectedElement[0], ...coords);
+				this._canvas.redraw();
+				ev.preventDefault();
+			}
+			console.log( ev.which );
+
+			if( ev.which == 1) {
+				this._board.addElement(... this._selectedElement, ...coords);
+				this._canvas.redraw();
+			}
+		});
+
+		let pthis = this;
+
+		$('#select_Elements').children().each( function() {
+
+			let elem = $(this);
+
+			let type = elem.attr('id').slice('select_'.length).toLowerCase();
+			let res = pthis._ressources[type] || {};
+
+			elem.empty();
+
+			for(let name in res) {
+
+				let img = res[name].image().cloneNode();
+				elem.append( img );
+
+				img = $(img);
+				img.attr('data-type', type);
+				img.attr('data-name', name);
+				img.attr('title', name);
+				img.prop('id', 'Select_' + type + '-' + name.replace(/\./g, '-') );
+
+				img.click( () => {
+
+					if( pthis._selectedElement !== null) {
+						let id = '#Select_' + pthis._selectedElement.join('.').replace(/\./g, '-');
+						$( id ).removeClass('selected');
+					}
+					pthis._selectedElement = [img.attr('data-type'), img.attr('data-name')];
+					img.addClass('selected');
+				});
+			}
+
 		});
 	}
 }

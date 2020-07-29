@@ -6,6 +6,15 @@ export class Board {
 		this._elements = {};
 	}
 
+	removeElement(type, x, y, z = null) {
+
+		if( z === null )
+			delete this._elements[type][x + 'x' + y];
+		
+		if(this._elements[type][x + 'x' + y])
+			delete this._elements[type][x + 'x' + y][z];
+	}
+
 	addElement(type, name, x, y, z = null) {
 
 		this._elements[type] = this._elements[type] || {};

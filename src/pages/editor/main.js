@@ -33,7 +33,7 @@ $( async () => {
 	let board = new Board();
 	let bc = new BoardCanvas( board, canvas, Ressources.index );
 
-	let editor = new Editor(board, bc);
+	let editor = new Editor(board, bc, Ressources.index);
 
 	canvas.mousemove( (ev) => {
 		let px = ev.pageX;
