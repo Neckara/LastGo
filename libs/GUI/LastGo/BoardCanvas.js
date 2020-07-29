@@ -170,8 +170,6 @@ export class BoardCanvas {
 
 			    this._ctx.lineTo( ... this._angleToCoord(end_angle, cx, cy, this._cw) );
 
-			    //this._ctx.moveTo(pos[0], pos[1]);
-			    //this._ctx.lineTo(pos[0], pos[1] + this._cw);
 			    this._ctx.fill();
 			}
 		}

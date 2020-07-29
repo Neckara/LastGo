@@ -56,7 +56,7 @@ export class Board {
 	}
 
 
-	serialize() {
+	export() {
 
 		let json = {
 			board_size: this.boardSize(),
@@ -67,16 +67,19 @@ export class Board {
 		return JSON.stringify(json, null, 0);
 	}
 
-	unserialize( data ) {
+	import( data ) {
 
-		let json = JSON.parse(data);
+		let json = data;
+
+		if( typeof json == 'string')
+			json = JSON.parse(data);
 
 		this.setBoardSize( ... json.board_size );
 
 		for(let player in json.players)
 			this.addPlayer(player, json.players[player]);
 
-		this._elements = json.elements;
+		this._elements = $.extend(true, {}, json.elements);
 	}
 
 
@@ -88,4 +91,18 @@ export class Board {
 
 		return changes;
 	}
+}
+
+
+
+Board.maps = {};
+
+{
+	let req = require.context("./Maps/", true, /\.json$/);
+	req.keys().forEach(function(key){
+
+		let name = key.slice(2,-5).replace(/\//g, '.');
+
+		Board.maps['built-in:' + name] = req(key);
+	});
 }

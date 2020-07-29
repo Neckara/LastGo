@@ -1,4 +1,5 @@
 const $ = require('jquery');
+import {Board} from 'calc/LastGo/Board.js';
 
 window.$ = $;
 
@@ -118,18 +119,20 @@ export class Editor {
 			if( this._selectedElement[0] == 'links')
 				z = this._lastAngle;
 
-			if( ev.which == 3) {
+			if( ev.which != 3 && ev.which != 1)
+				return;
 
-				this._board.removeElement(this._selectedElement[0], ...coords, z);
-				this._canvas.draw();
-				this._saveCurrent();
-			}
-
-			if( ev.which == 1) {
+			if( ev.which == 1)
 				this._board.addElement(this.selectedPlayer(), ... this._selectedElement, ...coords, z);
-				this._canvas.draw();
-				this._saveCurrent();
-			}
+			if( ev.which == 3)
+				this._board.removeElement(this._selectedElement[0], ...coords, z);
+
+			this._canvas.draw();
+			this._saveCurrent();
+
+			let cur = $('#selectMap').val();
+			if( cur.startsWith('built-in:') || cur.startsWith('import:') )
+				$('#selectMap').val('current');
 		});
 
 		let pthis = this;
@@ -193,30 +196,69 @@ export class Editor {
 
 			ev.preventDefault();
 
-			let data = await upload();
-			this._board.unserialize(data);
+			let [file, data] = await upload();
 
-			this._canvas.redraw();
-			this._saveCurrent();
+			file = 'import:' + file;
+			Board.maps[file] = JSON.parse(data);
+
+			let current_option = new Option(file, file, true, true);
+			$('#selectMap').append( current_option );
+			$('#selectMap').trigger('change');
+
+			let maps = JSON.parse(localStorage.getItem('maps') ) || {};
+			maps[file] = Board.maps[file];
+			localStorage.setItem('maps', JSON.stringify(maps, null, 0))
 		});
 
 		this._showLinks();
 
-		this._loadCurrent();
+		let current_option = new Option('current', 'current', true, true);
+		$('#selectMap').append( current_option );
+
+
+		let maps = JSON.parse(localStorage.getItem('maps') ) || {};
+		for(let map in maps)
+			Board.maps[map] = maps[map];
+
+		for(let map in Board.maps)
+			$('#selectMap').append( new Option(map, map) );
+
+		$('#selectMap').on('change', () => {
+
+			let selected = $('#selectMap').val();
+
+			if( selected == 'current') {
+				
+				if( ! this._loadCurrent() ) {
+					$('#selectMap').val('built-in:default');
+					$('#selectMap').trigger('change');
+				}
+				return;
+			}
+
+			this._board.import( Board.maps[selected] );
+			this._canvas.redraw();
+		});
+
+		$('#selectMap').trigger('change');
 	}
 
 	_saveCurrent() {
-		localStorage.setItem('boards.current', this._board.serialize() );
+		localStorage.setItem('maps.current', this._board.export() );
 	}
 
 	_loadCurrent() {
 
-		let data = localStorage.getItem('boards.current');
+		let data = localStorage.getItem('maps.current');
 
-		if(data)
-			this._board.unserialize(data);
+		if( ! data)
+			return false;
+
+		this._board.import(data);
 
 		this._canvas.redraw();
+
+		return true;
 	}
 
 	selectedPlayer() {
@@ -304,12 +346,11 @@ async function upload() {
 		input.on('change', () => {
 			
 			let file = event.target.files[0];
-    		console.log(file);
+			let filename = file.name.split('.').slice(0,-1).join('.');
 
     		const reader = new FileReader();
 			reader.addEventListener('load', (event) => {
-				console.log(event.target.result);
-				r(event.target.result);
+				r([filename, event.target.result]);
 			});
 			reader.readAsText(file);
 		});
