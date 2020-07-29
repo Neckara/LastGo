@@ -23,9 +23,14 @@ export class BoardCanvas {
 		let size = this._bsize = this._board.boardSize();
 		let boffset = 20;
 		let lw = this._lw = 1;
-		let cw = this._cw = Math.floor( Math.min( (this._canvas[0].width - 2*boffset) / size[0], (this._canvas[0].height - 2*boffset) / size[1] ) );
-		let left_offset = this._loffset = Math.ceil( (this._canvas[0].width - cw * size[1])/2);
-		let top_offset = this._toffset = Math.ceil( (this._canvas[0].height - cw * size[0])/2);
+		let cw = this._cw = Math.floor( Math.min(
+													(this._canvas[0].width - 2*boffset - size[0]*lw) / size[0],
+													(this._canvas[0].height - 2*boffset- size[1]*lw) / size[1] )
+												);
+		let left_offset = this._loffset = Math.ceil( (this._canvas[0].width - lw - (cw+lw) * size[0])/2);
+		let top_offset = this._toffset = Math.ceil( (this._canvas[0].height - lw - (cw+lw) * size[1])/2);
+
+		console.log(left_offset, boffset);
 
 		// vlines
 		for(let i = 0; i <= size[0]; ++i)

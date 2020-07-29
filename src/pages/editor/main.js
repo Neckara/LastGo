@@ -12,6 +12,8 @@ import {Board} from 'calc/LastGo/Board.js';
 import {Ressources} from 'GUI/LastGo/Ressources.js';
 import {BoardCanvas} from 'GUI/LastGo/BoardCanvas.js';
 
+import {Editor} from './Editor.js';
+
 $( async () => {
 
 	await Ressources.loadAllDefaults();
@@ -28,7 +30,10 @@ $( async () => {
 
 	let canvas = $('canvas');
 
-	let bc = new BoardCanvas( new Board(), canvas );
+	let board = new Board();
+	let bc = new BoardCanvas( board, canvas );
+
+	let editor = new Editor(board, bc);
 
 	canvas.mousemove( (ev) => {
 		let px = ev.pageX;
@@ -41,7 +46,7 @@ $( async () => {
 			bc.highlight(...coords);
 
 			bc.redraw();
-			
+
 			drawAgain();
 		}
 	});

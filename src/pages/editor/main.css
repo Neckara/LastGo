@@ -1,3 +1,8 @@
+body {
+    overflow:hidden;
+}
+
+
 canvas { 
   height: 100vh; 
   width: calc( 100vh / 9 * 16 ); 
@@ -8,7 +13,7 @@ canvas {
 #editorMenu {
 	height: 100vh;
 	width: calc( 100vw - 100vh / 9 * 16 );
-	background-color: red;
+	background-color: #D3D3D3;
 	position: absolute;
 	top: 0px;
 	right: 0px;
