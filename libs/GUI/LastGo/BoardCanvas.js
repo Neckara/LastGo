@@ -12,10 +12,22 @@ export class BoardCanvas {
 		this._highlights = [];
 	}
 
-	_drawBackground() {
+	_drawBackground(changes = null) {
+
+		if( changes === null) {
+			this._ctx.fillStyle = "green";
+			this._ctx.fillRect(0, 0, this._canvas[0].width, this._canvas[0].height);
+			return;
+		}
 
 		this._ctx.fillStyle = "green";
-		this._ctx.fillRect(0, 0, this._canvas[0].width, this._canvas[0].height);
+		for(let change of changes) {
+
+			let [x,y] = Array.from( change.split('x'), e => parseInt(e) );
+
+			let pos = this._CoordToPixels(x, y);
+			this._ctx.fillRect(pos[0], pos[1], this._cw, this._cw);
+		}
 	}
 
 	_drawGrid() {
@@ -129,6 +141,8 @@ export class BoardCanvas {
 
 	_drawHighlight() {
 
+		this._prevHighlights = this._highlights.slice();
+
 		for(let [x, y, beg_angle, end_angle, color] of this._highlights) {
 			let pos = this._CoordToPixels(x, y);
 			this._ctx.fillStyle = color;
@@ -163,13 +177,16 @@ export class BoardCanvas {
 		}
 	}
 
-	_drawElements(type) {
+	_drawElements(type, changes = null) {
 
 		let elements = this._board.getElements(type);
 
 		let size = this._bsize;
 
 		for(let key in elements) {
+
+			if( changes !== null && ! changes.has(key) )
+				continue;
 
 			let name = elements[key];
 			let coords = Array.from( key.split('x'), e => parseInt(e) );
@@ -192,9 +209,38 @@ export class BoardCanvas {
 
 	}
 
+	draw() {
+
+		let changes = [];
+
+		if( this._prevHighlights.length != this._highlights.length ) {
+			changes = [].concat( [...changes], this._prevHighlights, this._highlights);
+		} else {
+			for(let i = 0; i < this._highlights.length; ++i)
+				if( this._highlights[i].some( (e, j) => e != this._prevHighlights[i][j]) ) {
+					changes.push( this._highlights[i] );
+					changes.push( this._prevHighlights[i] );
+				}
+		}
+
+		changes = new Set([...Array.from( changes, e => e[0] + 'x' + e[1])]);
+		changes = new Set([...changes, ...this._board._getModifiedCases()]);
+
+		if( changes.size == 0)
+			return;
+
+		this._drawBackground(changes);
+		this._drawElements('links', changes);
+		this._drawElements('bases', changes);
+		this._drawElements('pawns', changes);
+		this._drawHighlight(changes);
+	}
+
 	async redraw() {
 
 		await Ressources.loadAllColored(this._ressources, this._board.players() );
+
+		this._board._getModifiedCases();
 
 		this._canvas[0].width = this._canvas.width();
 		this._canvas[0].height = this._canvas.height();

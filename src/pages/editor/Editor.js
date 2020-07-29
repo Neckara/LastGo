@@ -97,7 +97,7 @@ export class Editor {
 				this._canvas.highlight(...coords, ...angle);
 			}
 			
-			this._canvas.redraw();
+			this._canvas.draw();
 		});
 
 
@@ -121,13 +121,13 @@ export class Editor {
 			if( ev.which == 3) {
 
 				this._board.removeElement(this._selectedElement[0], ...coords, z);
-				this._canvas.redraw();
+				this._canvas.draw();
 				this._saveCurrent();
 			}
 
 			if( ev.which == 1) {
 				this._board.addElement(this.selectedPlayer(), ... this._selectedElement, ...coords, z);
-				this._canvas.redraw();
+				this._canvas.draw();
 				this._saveCurrent();
 			}
 		});

@@ -7,6 +7,8 @@ export class Board {
 
 
 		this._players = {};
+
+		this._changedCases = new Set();
 	}
 
 	addPlayer(name, color) {
@@ -75,5 +77,15 @@ export class Board {
 			this.addPlayer(player, json.players[player]);
 
 		this._elements = json.elements;
+	}
+
+
+	_getModifiedCases() {
+
+		let changes = new Set([...this._changedCases]);
+
+		this._changedCases.clear();
+
+		return changes;
 	}
 }
