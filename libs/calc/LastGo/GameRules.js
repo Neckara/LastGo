@@ -47,7 +47,7 @@ export class GameRules {
 
 		let PAWN = this._getRuleFor('pawns', name);
 
-		if( ! PAWN.canPut(currentPlayer, x, y, this, this._board) )
+		if( ! PAWN.canPutPawn(currentPlayer, x, y, this, this._board) )
 			return false;
 
 		//TODO SIMULATE POSE FOR REPLAY RULES.
@@ -66,17 +66,24 @@ export class GameRules {
 		return scores[idx][0];
 	}
 
-	putPawn(...args) {
+	putPawn(owner, type, name, x, y, z = null) {
 
-		if( ! this.canPutPawn(...args) )
+		if( ! this.canPutPawn(owner, type, name, x, y, z) )
 			return false;
 
+		let PAWN = this._getRuleFor('pawns', name);
+		let consequencies = PAWN.putPawn(owner, type, name, x, y, this, this._board);
+
 		let action = {
-			action: { type: 'put' },
+			action: {
+				type: 'put',
+				owner: owner,
+				type: type,
+				name: name,
+				pos: [x, y]
+			},
 			consequencies: {
-				added: [ args ],
-				deleted: [], // TODO EATED
-				scores: [], //TODO SCORE EATED
+				...consequencies,
 				next_player: this._nextPlayer()
 			}
 		};

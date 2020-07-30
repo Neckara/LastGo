@@ -1,7 +1,7 @@
 export default class Bases {
 
 
-	static canPut(player, x, y, rules, board) {
+	static canPutPawn(player, x, y, rules, board) {
 
 		if( board.getElements('pawns')[x + 'x' + y] !== undefined )
 			return 'FULL';
@@ -24,6 +24,58 @@ export default class Bases {
 		}
 
 		return 'NO_FREEDOM';
+	}
+
+
+	static putPawn(consequencies, player, x, y, rules, board) {
+
+		let limits = Bases.limits(player, x, y, rules, board);
+
+		let to_eat = new Set();
+
+		for(let enemy of limits.enemies) {
+
+			let enemy_limits = Bases.limits(...enemy, rules, board);
+
+			if( enemy_limits.freedoms.length > 1)
+				continue;
+
+			let free = enemy_limits.freedoms[0];
+			if( free[0] == x && free[1] == y ) {
+
+				to_eat.add( enemy[1] + 'x' + enemy[2] );
+
+				for(let eat of enemy_limits.group)
+					to_eat.add(eat[0] + 'x' + eat[1]);
+			}
+		}
+
+		for(let eat of to_eat) {
+
+			let base = board.getElements('bases')[eat];
+			let base_name = base.split('@')[0];
+			let BASE = rules._getRuleFor('bases', base_name);
+
+			let [x, y] = Array.from( eat.split('x'), e => parseInt(e) );
+
+			BASE.destroyPawn(player, consequencies, x, y, rules, board);
+
+		}
+
+		return;
+	}
+
+	static destroyPawn(player, consequencies, x, y, rules, board) {
+
+		let pos = x + 'x' + y;
+		let pawn = board.getElements('pawns')[pos];
+		let pawn_name = pawn.split('@')[0];
+		let PAWN = rules._getRuleFor('pawns', pawn_name);
+
+		let pawn_consequencies = PAWN.destroyPawn(player, x, y, rules, board);
+
+		for(let key in pawn_consequencies)
+			consequencies[key].push( ...pawn_consequencies[key] );
 	}
 
 	static limits(player, x, y, rules, board) {

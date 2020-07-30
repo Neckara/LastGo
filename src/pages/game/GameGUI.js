@@ -74,13 +74,13 @@ export class GameGUI {
 				if(limits) {
 
 					for(let freedom of limits.freedoms)
-						this._canvas.highlight(...freedom, players[limits.player][1]);
+						this._canvas.highlight(...freedom, 'rgba( 255, 255, 255, 0.25 )');
 					for(let friend of limits.group )
 						this._canvas.highlight(...friend, players[limits.player][1]);
 					for(let enemy of limits.enemies )
 						this._canvas.highlight(...enemy.slice(1), players[enemy[0]][1] );
 				}
-				
+
 				this._canvas.highlight(...coords);
 
 				if( this._game_rules.canPutPawn(current_player, 'pawns', 'default', ...coords) ) {
