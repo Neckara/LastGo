@@ -6,10 +6,11 @@ window.$ = $;
 
 export class GameGUI {
 	
-	constructor(game, canvas) {
+	constructor(game, game_rules, canvas) {
 
 		this._canvas = canvas;
 		this._game = game;
+		this._game_rules = game_rules;
 
 		let maps = JSON.parse(localStorage.getItem('maps') ) || {};
 		for(let map in maps)
@@ -28,27 +29,21 @@ export class GameGUI {
 			if( ev.which != 3 && ev.which != 1)
 				return;
 
-			let currentPlayer = this._game.currentPlayer();
+			if( ev.which == 1) {
+				
+				if( this._game_rules.putPawn(this._game.currentPlayer(), 'pawns', 'default', ...coords) ) {
+					this._saveCurrent();
+					this._updateGame();
+				}				
+			}
 
-			let scores = this._game.scores();
-			let idx = scores.findIndex( e => e[0] == currentPlayer );
-			idx = (idx + 1) % scores.length;
-			let next_player = scores[idx][0];
-
-			let action = {
-				action: { type: 'debug' },
-				consequencies: {
-					added: [],
-					deleted: [],
-					scores: [],
-					next_player: next_player
-				}
-			};
-
+			/*
 			if( ev.which == 1) {
 				action.consequencies.added.push([currentPlayer, 'pawns', 'default', ...coords]);
 				//this._game._board.addElement(this._game.currentPlayer(), 'pawns', 'default', ...coords);
-			}
+			}*/
+
+			/*
 			if( ev.which == 3) {
 
 				action.consequencies.scores.push([currentPlayer, 1]);
@@ -56,12 +51,8 @@ export class GameGUI {
 				// TODO get owner + draw...
 				//action.consequencies.deleted.push(...coords);
 				//this._game._board.removeElement('pawns', ...coords);
-			}
+			}*/
 
-			this._game.addAction(action);
-			this._saveCurrent();
-
-			this._updateGame();
 		});
 
 		$('canvas').mousemove( (ev) => {
@@ -73,9 +64,28 @@ export class GameGUI {
 			this._canvas.clearPhantomElements();
 
 			if(coords !== null) {
-				this._canvas.highlight(...coords);
+
+				let players = this._game.players();
+
 				let current_player = this._game.currentPlayer();
-				this._canvas.addPhantomElement('pawns', 'default', current_player, ...coords);
+
+				let limits = this._game_rules.getLimits(current_player, ...coords);
+
+				if(limits) {
+
+					for(let freedom of limits.freedoms)
+						this._canvas.highlight(...freedom, players[limits.player][1]);
+					for(let friend of limits.group )
+						this._canvas.highlight(...friend, players[limits.player][1]);
+					for(let enemy of limits.enemies )
+						this._canvas.highlight(...enemy.slice(1), players[enemy[0]][1] );
+				}
+				
+				this._canvas.highlight(...coords);
+
+				if( this._game_rules.canPutPawn(current_player, 'pawns', 'default', ...coords) ) {
+					this._canvas.addPhantomElement('pawns', 'default', current_player, ...coords);
+				}
 			}
 			
 			this._canvas.draw();

@@ -12,6 +12,10 @@ export class Game {
 
 		this._scores = Array.from( Object.entries(this._board.players()).filter(e => e[0] != 'Neutral'), e => [e[0], 0, e[1]]);
 
+		this._players = {};
+		for(let i = 0; i < this._scores.length; ++i)
+			this._players[ this._scores[i][0] ] = [i, this._scores[i][2]];
+
 		let next_player = this._scores[0];
 
 		this._history = [{
@@ -65,7 +69,7 @@ export class Game {
 				this._cur += direction;
 
 			for(let score of this._history[this._cur].consequencies.scores) {
-				let idx = this._scores.findIndex( e => e[0] == score[0]);
+				let idx = this._players[score[0]][0];
 				this._scores[idx][1] += direction * score[1];
 			}
 
@@ -74,15 +78,12 @@ export class Game {
 			if( direction == -1)
 				[added, deleted] = [deleted, added];
 
-			for(let del of deleted) {
-				console.log('del');
+			for(let del of deleted)
 				this._board.removeElement(...del);
-			}
 
-			for(let add of added) {
-				console.log('add');
+			for(let add of added)
 				this._board.addElement(...add);
-			}
+
 
 			if( direction == -1)
 				this._cur += direction;
@@ -103,6 +104,10 @@ export class Game {
 
 	scores() {
 		return this._scores;
+	}
+
+	players() {
+		return this._players;
 	}
 
 	currentPlayer() {

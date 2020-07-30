@@ -125,7 +125,7 @@ export class BoardCanvas {
 			beg_angle = null;
 		}
 
-		this._highlights.push([x, y, beg_angle, end_angle, color = 'rgba(225,225,225,0.5)']);
+		this._highlights.push([x, y, beg_angle, end_angle, color]);
 	}
 
 	removeHighlight(x, y, beg_angle = null, end_angle = null, color = 'rgba(225,225,225,0.5)') {
@@ -135,7 +135,7 @@ export class BoardCanvas {
 			beg_angle = null;
 		}
 
-		let test = [x, y, beg_angle, end_angle, color = 'rgba(225,225,225,0.5)'];
+		let test = [x, y, beg_angle, end_angle, color];
 
 		this._highlights = this._highlights.filter( e => e.every( (e, idx) => e == test[i] ) );
 	}
@@ -169,6 +169,10 @@ export class BoardCanvas {
 
 			let pos = this._CoordToPixels(x, y);
 			this._ctx.fillStyle = color;
+
+			let fillcolor = this._ctx.fillStyle;
+			if(fillcolor[0] == '#' && fillcolor.length == 7)
+				this._ctx.fillStyle = fillcolor + 'C0';
 
 			if( beg_angle == null)
 				this._ctx.fillRect(pos[0], pos[1], this._cw, this._cw);
