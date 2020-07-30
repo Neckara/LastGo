@@ -11,25 +11,36 @@
 	<body>
 		<div id='bar'>
 			<div id='players'></div>
+			<div id='actions'>
+				<!-- disabled if online -->
+				<button id='prev-btn'>Prev</button>
+				<button id='next-btn'>Next</button>
+			</div>
 			<div id='toolbox' class='float-right'>
-				
 
-				<button id='openmap-btn'>Open Map</button>
+				<button id='new-btn'>New</button>
+				<button id='import-btn'>Import</button>
+				<button id='export-btn'>Export</button>
+				<button id='save-btn'>Save</button>
+				<button id='delete-btn'>Delete</button>
 			</div>
 		</div>
 		<canvas></canvas>
 
 		<!-- Modal -->
-		<div class="modal fade" id="loadmap-modal" tabindex="-1">
+		<div class="modal fade" id="newgame-modal" tabindex="-1">
 		  <div class="modal-dialog">
 		    <div class="modal-content">
 		      <div class="modal-header">
-		        <h5 class="modal-title" id="exampleModalLabel">Please select a map</h5>
+		        <h5 class="modal-title" id="exampleModalLabel">Please select a Game</h5>
 		        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
 		          <span aria-hidden="true">&times;</span>
 		        </button>
 		      </div>
 		      <div class="modal-body">
+		      	Game:
+		      	<select id='selectGame' class='form-control'></select>
+		      	Map:
 		      	<select id='loadmap-select' class='form-control'></select>
 		      </div>
 			    <div class="modal-footer">

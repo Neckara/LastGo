@@ -209,8 +209,11 @@ export class Editor {
 
 				map = 'saved:' + map;
 
+				$("#selectMap option[value='"+ map +"']").remove();
 				$('#selectMap').append( new Option(map, map, true, true) );
 				$('#selectMap').val(map);
+
+				$('#delete-btn').prop('disabled', map == 'current' || map.startsWith('built-in:') );
 			}
 
 			let maps = JSON.parse(localStorage.getItem('maps') ) || {};
@@ -235,6 +238,7 @@ export class Editor {
 			file = 'import:' + file;
 			Board.maps[file] = JSON.parse(data);
 
+			$("#selectMap option[value='"+ map +"']").remove();
 			let current_option = new Option(file, file, true, true);
 			$('#selectMap').append( current_option );
 			$('#selectMap').trigger('change');

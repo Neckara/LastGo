@@ -2,7 +2,7 @@ import {Ressources} from './Ressources.js';
 
 export class BoardCanvas {
 
-	constructor(board, canvas, ressources) {
+	constructor(board, canvas, ressources, gridWidth = 1) {
 		this._board = board;
 
 		this._canvas = canvas;
@@ -10,6 +10,7 @@ export class BoardCanvas {
 		this._ctx = this._canvas[0].getContext("2d");
 
 		this._highlights = [];
+		this._lw = gridWidth;
 
 		$(window).on('resize', () => {
 			this.redraw();
@@ -41,7 +42,7 @@ export class BoardCanvas {
 		//TODO move own function.
 		let size = this._bsize = this._board.boardSize();
 		let boffset = 20;
-		let lw = this._lw = 1;
+		let lw = this._lw;
 		let cw = this._cw = Math.floor( Math.min(
 													(this._canvas[0].width - 2*boffset - size[0]*lw) / size[0],
 													(this._canvas[0].height - 2*boffset- size[1]*lw) / size[1] )

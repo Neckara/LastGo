@@ -21,7 +21,7 @@ $( async () => {
 	let canvas = $('canvas');
 
 	let board = new Board();
-	let boardCanvas = new BoardCanvas( board, canvas, Ressources.index );
+	let boardCanvas = new BoardCanvas( board, canvas, Ressources.index, 0 );
 
 	let gg = new GameGUI(board, boardCanvas, Ressources.index);
 });
