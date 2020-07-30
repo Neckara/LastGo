@@ -81,12 +81,28 @@ export class Board {
 	}
 
 
-	export() {
+	export(sort = false) {
+
+		let elements = this._elements;
+
+		if(sort) {
+
+			for(let key in elements) {
+
+				for(let pos in elements[key])
+					if( typeof elements[key][pos] !== 'string')
+						elements[key][pos] = Object.fromEntries(Object.entries(elements[key][pos]).sort());
+
+				elements[key] = Object.fromEntries(Object.entries(elements[key]).sort());
+			}
+
+			elements = Object.fromEntries(Object.entries(elements).sort());
+		}
 
 		let json = {
 			board_size: this.boardSize(),
 			players: this.players(),
-			elements: this._elements
+			elements: elements
 		};
 		
 		return JSON.stringify(json, null, 0);

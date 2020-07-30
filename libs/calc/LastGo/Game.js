@@ -6,6 +6,27 @@ export class Game {
 		this._board = board;
 	}
 
+	hasIdenticalState(action) {
+
+		let history = this._history;
+		let cur = this._cur;
+
+		let simulate = new Board();
+		simulate.import( Board.maps[this._map] ); //TODO Optimize
+
+		let states = new Set();
+
+		for(let i = 0; i <= cur; ++i) {
+
+			this._applyAction( simulate, this._history[i] );
+			states.add( simulate.export(true) );
+		}
+
+		this._applyAction( simulate, action );
+
+		return states.has( simulate.export(true) );
+	}
+
 	_reset() {
 
 		this._board.import( Board.maps[this._map] );
@@ -28,6 +49,7 @@ export class Game {
 				}
 			}];
 		this._cur = 0;
+		this._states = new Set();
 	}
 
 	isEndOfGame() {
@@ -44,8 +66,6 @@ export class Game {
 
 		return true;
 	}
-
-	//TODO compare states (has same state = in rules)
 
 	addAction(action) {
 
@@ -69,6 +89,21 @@ export class Game {
 		return this.setCur(this._cur-1);
 	}
 
+
+	_applyAction(board, action, direction = 1) {
+
+		let {added, deleted} = action.consequencies;
+
+		if( direction == -1)
+			[added, deleted] = [deleted, added];
+
+		for(let del of deleted)
+			board.removeElement(...del);
+
+		for(let add of added)
+			board.addElement(...add);
+	}
+
 	setCur(cur) {
 
 		if( cur < 0)
@@ -88,16 +123,7 @@ export class Game {
 				this._scores[idx][1] += direction * score[1];
 			}
 
-			let {added, deleted} = this._history[this._cur].consequencies;
-
-			if( direction == -1)
-				[added, deleted] = [deleted, added];
-
-			for(let del of deleted)
-				this._board.removeElement(...del);
-
-			for(let add of added)
-				this._board.addElement(...add);
+			this._applyAction(this._board, this._history[this._cur], direction);
 
 
 			if( direction == -1)

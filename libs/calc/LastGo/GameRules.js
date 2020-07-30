@@ -53,9 +53,9 @@ export class GameRules {
 		if( ! PAWN.canPutPawn(currentPlayer, x, y, this, this._board) )
 			return false;
 
-		//TODO SIMULATE POSE FOR REPLAY RULES.
-		//TODO VERIFY PREVIOUS STATE
-		return true;
+		let simulate = this.putPawn(owner, type, name, x, y, z, true);
+
+		return simulate;
 	}
 
 	_nextPlayer() {
@@ -69,9 +69,9 @@ export class GameRules {
 		return scores[idx][0];
 	}
 
-	putPawn(owner, type, name, x, y, z = null) {
+	putPawn(owner, type, name, x, y, z = null, simulate = false) {
 
-		if( ! this.canPutPawn(owner, type, name, x, y, z) )
+		if( ! simulate && ! this.canPutPawn(owner, type, name, x, y, z) )
 			return false;
 
 		let PAWN = this._getRuleFor('pawns', name);
@@ -91,9 +91,10 @@ export class GameRules {
 			}
 		};
 
-		this._game.addAction(action);
+		if( simulate )
+			return ! this._game.hasIdenticalState(action);
 
-		return true;
+		return this._game.addAction(action);
 	}
 
 	isEndOfGame() {
