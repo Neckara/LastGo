@@ -26,12 +26,15 @@ export class Game {
 		this._cur = 0;
 	}
 
+	//TODO compare states (has same state = in rules)
+
 	addAction(action) {
 
 		if( typeof action == 'string')
 			action = JSON.parse(action);
 
-		//TODO compare states.
+		action.action.timespamp = Date.now();
+		action.action.date = new Date().toLocaleDateString('ja-JP') + ' ' + new Date().toLocaleTimeString('ja-JP');
 
 		this._history.length = this._cur + 1;
 		this._history.push(action);

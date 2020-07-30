@@ -1,4 +1,5 @@
 import {Ressources} from './Ressources.js';
+const $ = require('jquery');
 
 export class BoardCanvas {
 
@@ -10,6 +11,9 @@ export class BoardCanvas {
 		this._ctx = this._canvas[0].getContext("2d");
 
 		this._highlights = [];
+		this._phantomElements = [];
+
+		this._lastModifiedPhantom = [];
 		this._lw = gridWidth;
 
 		$(window).on('resize', () => {
@@ -124,6 +128,18 @@ export class BoardCanvas {
 		this._highlights.push([x, y, beg_angle, end_angle, color = 'rgba(225,225,225,0.5)']);
 	}
 
+	removeHighlight(x, y, beg_angle = null, end_angle = null, color = 'rgba(225,225,225,0.5)') {
+
+		if( end_angle === null && beg_angle !== null) {
+			color = beg_angle;
+			beg_angle = null;
+		}
+
+		let test = [x, y, beg_angle, end_angle, color = 'rgba(225,225,225,0.5)'];
+
+		this._highlights = this._highlights.filter( e => e.every( (e, idx) => e == test[i] ) );
+	}
+
 	_angleToCoord(angle, cx, cy, cw) {
 
 		let isCos = ! (angle > 45 && angle < 135 || angle > 225 && angle < 315);
@@ -144,11 +160,13 @@ export class BoardCanvas {
 		return [cx + x, cy + y];
 	}
 
-	_drawHighlight() {
-
-		this._prevHighlights = this._highlights.slice();
+	_drawHighlight(changes = null) {
 
 		for(let [x, y, beg_angle, end_angle, color] of this._highlights) {
+
+			if( changes && ! changes.has(x + 'x' + y) )
+				continue;
+
 			let pos = this._CoordToPixels(x, y);
 			this._ctx.fillStyle = color;
 
@@ -180,9 +198,11 @@ export class BoardCanvas {
 		}
 	}
 
-	_drawElements(type, changes = null) {
+	_drawElements(type, changes = null, _phantom = false) {
 
-		let elements = this._board.getElements(type);
+		let elements = _phantom ?
+								this._phantomElements[type]
+							  : this._board.getElements(type);
 
 		let size = this._bsize;
 
@@ -210,29 +230,132 @@ export class BoardCanvas {
 			}
 		}
 
+		if( ! _phantom)
+			this._drawElements(type, changes, true);
+	}
+
+	addPhantomElement(type, name, owner, x,y,z = null) {
+
+		this._phantomElements[type] = this._phantomElements[type] || {};
+
+		if( z === null)
+			this._phantomElements[type][x + 'x' + y] = name + '@' + owner;
+		else
+			this._phantomElements[type][x + 'x' + y][z] = name + '@' + owner;
+	}
+
+	removePhantomElement(type, x,y,z = null) {
+
+		if(z === null)
+			delete this._phantomElements[type][x + 'x' + y];
+		else
+			delete this._phantomElements[type][x + 'x' + y][z];
+	}
+
+	clearPhantomElements() {
+		this._phantomElements = {};
+	}
+
+	_hightligths_changes() {
+
+		let changes = [];
+
+		let min = Math.min( this._prevHighlights.length, this._highlights.length );
+
+		for(let i = 0; i < min; ++i)
+			if( this._highlights[i].some( (e, j) => e != this._prevHighlights[i][j]) ) {
+				changes.push( this._highlights[i] );
+				changes.push( this._prevHighlights[i] );
+			}
+
+		changes = [].concat(	changes,
+								this._prevHighlights.slice(min),
+								this._highlights.slice(min) );
+
+		return Array.from(changes, e => e[0] + 'x' + e[1]);
+	}
+
+	_phantomElement_changes() {
+
+		let changes = [];
+
+		let types = new Set(...Object.keys(this._prevPhantomElements),
+							...Object.keys(this._phantomElements) );
+
+		for(let type of types) {
+
+			let ptype = this._prevPhantomElements[type] || {};
+			let ctype = this._phantomElements[type] || {};
+
+			let keys = new Set(	...Object.keys(ptype),
+								...Object.keys(ctype) );
+
+			for(let key of keys) {
+
+				if(ptype[key] === undefined || ctype[key] === undefined ) {
+					changes.push(key);
+					continue;
+				}
+
+				if( typeof ptype[key] == 'string' && typeof ctype[key] == 'string') {
+
+					if( ptype[key] != ctype[key] )
+						changes.push(key);
+					continue;
+				}
+
+				if(		typeof ptype[key] == 'string' && typeof ctype[key] != 'string'
+					||  typeof ptype[key] != 'string' && typeof ctype[key] == 'string') {
+					changes.push(key);
+					continue;
+				}
+
+				let zs = new Set(	...Object.keys(ptype[key]),
+									...Object.keys(ctype[key]) );
+
+				for(let z of zs)
+					if( ptype[key][z] != ctype[key][z])
+						changes.push(key);
+			}
+		}
+
+		return changes;
+	}
+
+	_changes() {
+
+		return new Set([
+			...this._hightligths_changes(),
+			...this._phantomElement_changes(),
+			...this._board._getModifiedCases()]);
+	}
+
+	_resetChanges() {
+		this._board._getModifiedCases();
+		this._prevHighlights = this._highlights.slice();
+		this._prevPhantomElements = $.extend(true, {}, this._phantomElements);
 	}
 
 	draw() {
 
 		if( this._board._structHasChangedSinceLastTime() ) {
 			this._redraw();
+			this._resetChanges();
+			console.log('redraxed');
 			return;
 		}
 
-		let changes = [];
+		let changes = this._changes(); // must be done before _redraw();
+		this._resetChanges();
 
-		if( this._prevHighlights.length != this._highlights.length ) {
-			changes = [].concat( [...changes], this._prevHighlights, this._highlights);
-		} else {
-			for(let i = 0; i < this._highlights.length; ++i)
-				if( this._highlights[i].some( (e, j) => e != this._prevHighlights[i][j]) ) {
-					changes.push( this._highlights[i] );
-					changes.push( this._prevHighlights[i] );
-				}
-		}
+		// this._hightligths_changes()
+		// this._phantomElement_changes()
+		// 
+		// this._changes()
 
-		changes = new Set([...Array.from( changes, e => e[0] + 'x' + e[1])]);
-		changes = new Set([...changes, ...this._board._getModifiedCases()]);
+		
+
+				
 
 		if( changes.size == 0)
 			return;
@@ -248,8 +371,6 @@ export class BoardCanvas {
 
 		await Ressources.loadAllColored(this._ressources, this._board.players() );
 
-		this._board._getModifiedCases();
-
 		this._canvas[0].width = this._canvas.width();
 		this._canvas[0].height = this._canvas.height();
 
@@ -259,7 +380,6 @@ export class BoardCanvas {
 		this._drawElements('links');
 		this._drawElements('bases');
 		this._drawElements('pawns');
-
 
 		this._drawHighlight();
 	}

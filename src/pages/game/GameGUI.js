@@ -21,9 +21,13 @@ export class GameGUI {
 			let coords = this._canvas.PixelsToCoord(px, py);
 
 			this._canvas.clearHighlights();
+			this._canvas.clearPhantomElements();
 
-			if(coords !== null)
+			if(coords !== null) {
 				this._canvas.highlight(...coords);
+				let current_player = this._game.currentPlayer();
+				this._canvas.addPhantomElement('pawns', 'default', current_player, ...coords);
+			}
 			
 			this._canvas.draw();
 		});
@@ -220,7 +224,7 @@ export class GameGUI {
 		let current_player = this._game.currentPlayer();
 
 		for(let [name, score, color] of scores)
-			players.find('div[title="' + name + '"] .score').text('Score:' + 2);
+			players.find('div[title="' + name + '"] .score').text('Score:' + score);
 
 		players.children().removeClass('selected');
 		players.find('div[title="' + current_player + '"]').addClass('selected');
