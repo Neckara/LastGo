@@ -27,19 +27,6 @@ export class Editor {
 		this._selectedElement = null;
 		this._lastAngle = 'r';
 
-		let players = {
-			'Neutral': '#000080ff',
-			'Player 1': '#eeec80ff',
-			'Player 2': 'red',
-			'Player 3': 'gray',
-			'Player 4': 'orange'
-		};
-
-		for(let player in players)
-			this._addPlayer(player, players[player]);
-
-		$('#players .player').first().trigger('click');
-
 		// Grid size
 		$('#board_width, #board_height').on('input', () => {
 
@@ -132,6 +119,64 @@ export class Editor {
 		});
 
 		let pthis = this;
+
+		this._last_color_change = null;
+
+		$('#player-color').on('change', () => {
+
+			let color = $('#player-color').val();
+
+			let name = this._last_color_change;
+
+			let player = $('#players .player[title="'+ name +'"]');
+
+			this._board.modifyPlayer(name, color);
+			this._updatePlayers();
+
+			this._canvas.draw();
+			this._saveCurrent();
+		});
+
+
+		$('#addplayer-btn').click( ev => {
+
+			ev.preventDefault();
+
+			let player = prompt('Enter a name for your player');
+
+			if( ! player )
+				return;
+
+			if( this._board.players()[player] !== undefined ) {
+				alert('User already exists !');
+				return;
+			}
+
+			let color = $('#player-color').val();
+			this._board.addPlayer(player, color)
+			this._updatePlayers();
+
+			this._saveCurrent();
+
+			let element = $('#players .player[title="'+ player +'"]');
+			element.trigger('dblclick');
+		});
+
+		$('#delplayer-btn').click( ev => {
+
+			ev.preventDefault();
+
+			let name = $('#players .player.selected').attr('title');
+
+			if(! name || name == 'Neutral')
+				return;
+
+			this._board.delPlayer(name);
+			this._updatePlayers();
+
+			this._canvas.draw();
+			this._saveCurrent();
+		});
 
 		// Select element
 		$('#select_Elements').children().each( function() {
@@ -277,6 +322,7 @@ export class Editor {
 			}
 
 			this._board.import( Board.maps[selected] );
+			this._updatePlayers();
 			this._canvas.draw();
 		});
 
@@ -300,6 +346,7 @@ export class Editor {
 			return false;
 
 		this._board.import(data);
+		this._updatePlayers();
 		this._canvas.draw();
 
 		return true;
@@ -309,37 +356,62 @@ export class Editor {
 		return $('#players .player.selected').prop('title');
 	}
 
-	_addPlayer(name, color) {
+	_updatePlayers() {
 
-		this._board.addPlayer(name, color);
+		let selected = $('#players .player.selected').attr('title');
 
-		let parent = $('#players');
+		$('#players').empty();
 
-		let player = $('<span/>');
-		player.addClass('player');
-		player.prop('title', name);
+		let players =  this._board.players();
 
-		player.css('background-color', color);
+		for(let name in players ) {
 
-		player.click( (ev) => {
+			let color = players[name];
 
-			$('#players .player').removeClass('selected');
-			player.addClass('selected');
+			let parent = $('#players');
 
-			let pthis = this;
-			$('#select_Elements img').each( function () {
+			let player = $('<span/>');
+			player.addClass('player');
+			player.prop('title', name);
 
-				let elem = $(this);
+			player.css('background-color', color);
 
-				let type = elem.attr('data-type');
-				let name = elem.attr('data-name');
+			player.on('dblclick', (ev) => {
+				
+				this._last_color_change = name;
 
-				let new_content = pthis._ressources[type][name].colorContent( player.css('background-color') );
-				elem.attr('src', new_content);
+				$('#player-color').focus();
+				$('#player-color').click();
+
 			});
-		});
 
-		parent.append(player);
+			player.click( (ev) => {
+
+				$('#players .player').removeClass('selected');
+				player.addClass('selected');
+
+				let pthis = this;
+				$('#select_Elements img').each( function () {
+
+					let elem = $(this);
+
+					let type = elem.attr('data-type');
+					let name = elem.attr('data-name');
+
+					let new_content = pthis._ressources[type][name].colorContent( player.css('background-color') );
+					elem.attr('src', new_content);
+				});
+			});
+
+			parent.append(player);
+		}
+
+		selected = $('#players .player[title="' + selected + '"');
+
+		if( selected.length > 0)
+			selected.trigger('click');
+		else 
+			$('#players .player').first().trigger('click');
 	}
 
 	_showLinks() {

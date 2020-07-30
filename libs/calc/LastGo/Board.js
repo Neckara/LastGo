@@ -11,8 +11,43 @@ export class Board {
 		this._changedCases = new Set();
 	}
 
+	modifyPlayer(name, color) {
+		
+		this.addPlayer(name, color);
+		this._hasStructChanged = true;
+	}
+
 	addPlayer(name, color) {
+
 		this._players[name] = color;
+		this._hasStructChanged = true;
+	}
+
+	delPlayer(name) {
+
+
+		for(let type in this._elements)
+			for(let key in this._elements[type]) {
+
+				let element = this._elements[type][key];
+				let [x, y] = Array.from( key.split('x') , e => parseInt(e) );
+
+				if( typeof element === 'string') {
+
+
+					if( element.endsWith('@' + name) )
+						this.removeElement(type, x, y);
+
+					continue;
+				}
+
+				for(let z in element)
+					if( element[z].endsWith('@' + name) )
+						this.removeElement(type, x, y, z);
+			}
+
+		delete this._players[name];
+		this._hasStructChanged = true;
 	}
 
 	removeElement(type, x, y, z = null, extraY = null, extraZ = null) {

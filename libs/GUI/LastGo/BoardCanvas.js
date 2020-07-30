@@ -17,7 +17,7 @@ export class BoardCanvas {
 		this._lw = gridWidth;
 
 		$(window).on('resize', () => {
-			this.redraw();
+			this.draw(true);
 		});
 	}
 
@@ -340,7 +340,7 @@ export class BoardCanvas {
 		this._prevPhantomElements = $.extend(true, {}, this._phantomElements);
 	}
 
-	draw() {
+	draw(force_redraw = false) {
 
 		if( this._isDrawing ) {
 			this._asked_drawing = true;
@@ -349,7 +349,7 @@ export class BoardCanvas {
 
 		this._isDrawing = true;
 
-		if( this._board._structHasChangedSinceLastTime() ) {
+		if( this._board._structHasChangedSinceLastTime() || force_redraw ) {
 
 			this._resetChanges();
 			this._asked_drawing = false;
