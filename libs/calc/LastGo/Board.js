@@ -26,6 +26,7 @@ export class Board {
 
 	removeAllElements() {
 		this._elements = {};
+		this._hasStructChanded = true;
 	}
 
 	addElement(owner, type, name, x, y, z = null) {
@@ -53,6 +54,7 @@ export class Board {
 
 	setBoardSize(w, h) {
 		this._boardSize = [w, h];
+		this._hasStructChanded = true;
 	}
 
 
@@ -80,8 +82,17 @@ export class Board {
 			this.addPlayer(player, json.players[player]);
 
 		this._elements = $.extend(true, {}, json.elements);
+
+		this._hasStructChanded = true;
 	}
 
+	_structHasChangedSinceLastTime() {
+		let changed = this._hasStructChanded;
+
+		this._hasStructChanded = false;
+
+		return changed;
+	}
 
 	_getModifiedCases() {
 

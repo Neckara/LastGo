@@ -214,6 +214,11 @@ export class BoardCanvas {
 
 	draw() {
 
+		if( this._board._structHasChangedSinceLastTime() ) {
+			this._redraw();
+			return;
+		}
+
 		let changes = [];
 
 		if( this._prevHighlights.length != this._highlights.length ) {
@@ -239,7 +244,7 @@ export class BoardCanvas {
 		this._drawHighlight(changes);
 	}
 
-	async redraw() {
+	async _redraw() {
 
 		await Ressources.loadAllColored(this._ressources, this._board.players() );
 

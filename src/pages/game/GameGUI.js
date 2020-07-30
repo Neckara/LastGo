@@ -6,13 +6,10 @@ window.$ = $;
 
 export class GameGUI {
 	
-	constructor(board, canvas, ressources) {
+	constructor(game, canvas) {
 
-		this._board = board;
 		this._canvas = canvas;
-		this._ressources = ressources;
-
-		this._game = new Game();
+		this._game = game;
 
 		let maps = JSON.parse(localStorage.getItem('maps') ) || {};
 		for(let map in maps)
@@ -136,15 +133,39 @@ export class GameGUI {
 			this._initGame();
 		});
 
-		$('#selectGame').trigger('change');
+		$('#pass-btn').click( (ev) => {
+
+			let scores = this._game.scores();
+
+			let idx = scores.findIndex( e => e[0] == this._game.currentPlayer() );
+			idx = (idx + 1) % scores.length;
+
+			let next_player = scores[idx][0];
+
+			this._game.addAction({
+				action: { type: 'pass' },
+				consequencies: {
+					added: [],
+					deleted: [],
+					scores: [],
+					next_player: next_player
+				}
+			});
+
+			this._updateGame();
+		});
 
 		$('#prev-btn').click( (ev) => {
 			this._game.prev();
 			this._saveCurrent();
+
+			this._updateGame();
 		});
 		$('#next-btn').click( (ev) => {
 			this._game.next();
 			this._saveCurrent();
+
+			this._updateGame();
 		});
 
 		$('#new-btn').click( (ev) => {
@@ -162,6 +183,10 @@ export class GameGUI {
 
 			$('#newgame-modal').modal('show');
 		});
+
+
+		
+		$('#selectGame').trigger('change');
 	}
 
 	_saveCurrent() {
@@ -187,21 +212,30 @@ export class GameGUI {
 		return true;
 	}
 
+	_updateGame() {
+
+		let players = $('#players');
+		let scores = this._game.scores();
+
+		let current_player = this._game.currentPlayer();
+
+		for(let [name, score, color] of scores)
+			players.find('div[title="' + name + '"] .score').text('Score:' + 2);
+
+		players.children().removeClass('selected');
+		players.find('div[title="' + current_player + '"]').addClass('selected');
+
+		this._canvas.draw();
+	}
+
 	_initGame() {
-
-		let map = this._game.map();
-
-		this._currentMap = Board.maps[map];
-		this._board.import(this._currentMap);
-		this._canvas.redraw();
 
 		let players = $('#players');
 		players.empty();
 
-		for(let name in this._currentMap.players) {
+		let scores = this._game.scores();
 
-			if(name == 'Neutral')
-				continue;
+		for(let [name, score, color] of scores) {
 
 			let player = $('<div/>');
 			player.addClass('player');
@@ -209,18 +243,17 @@ export class GameGUI {
 
 			let player_img = $('<span/>');
 			player_img.addClass('player_img');
-			player_img.css('background-color', this._currentMap.players[name]);
+			player_img.css('background-color', color);
 
 			player.append(player_img);
 
 			let score = $('<span/>');
 			score.addClass('score');
-			score.text('Score: 0');
 			player.append(score);
 			players.append(player);
 		}
 		
-		players.children().first().addClass('selected');
+		this._updateGame();
 	}
 }
 

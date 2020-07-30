@@ -52,7 +52,7 @@ export class Editor {
 				h = 1;
 
 			this._board.setBoardSize(w, h);
-			this._canvas.redraw();
+			this._canvas.draw();
 		});
 		$('#board_width').trigger('input');
 
@@ -175,7 +175,7 @@ export class Editor {
 			ev.preventDefault();
 
 			this._board.removeAllElements();
-			this._canvas.redraw();
+			this._canvas.draw();
 
 			this._saveCurrent();
 		});
@@ -277,7 +277,7 @@ export class Editor {
 			}
 
 			this._board.import( Board.maps[selected] );
-			this._canvas.redraw();
+			this._canvas.draw();
 		});
 
 		$('#selectMap').trigger('change');
@@ -300,8 +300,7 @@ export class Editor {
 			return false;
 
 		this._board.import(data);
-
-		this._canvas.redraw();
+		this._canvas.draw();
 
 		return true;
 	}
