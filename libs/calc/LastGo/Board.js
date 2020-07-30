@@ -15,7 +15,21 @@ export class Board {
 		this._players[name] = color;
 	}
 
-	removeElement(type, x, y, z = null) {
+	removeElement(type, x, y, z = null, extraY = null, extraZ = null) {
+
+		if( extraY !== null) {
+			type = x;
+			x = z;
+			y = extraY;
+			z = extraZ;
+		}
+
+		if( z === null && this._elements[type][x + 'x' + y] === undefined)
+			return;
+		if( z !== null && (! this._elements[type][x + 'x' + y] || this._elements[type][x + 'x' + y][z] === undefined) )
+			return;
+
+		this._changedCases.add(x + 'x' + y);
 
 		if( z === null )
 			delete this._elements[type][x + 'x' + y];
@@ -26,18 +40,27 @@ export class Board {
 
 	removeAllElements() {
 		this._elements = {};
-		this._hasStructChanded = true;
+		this._hasStructChanged = true;
 	}
 
 	addElement(owner, type, name, x, y, z = null) {
 
 		this._elements[type] = this._elements[type] || {};
 
+		let value = name + '@' + owner;
+
+		if( z === null && this._elements[type][x + 'x' + y] == value)
+			return;
+		if( z !== null && this._elements[type][x + 'x' + y] && this._elements[type][x + 'x' + y][z] == value)
+			return;
+
+		this._changedCases.add(x + 'x' + y);
+
 		if( z === null )
-			return this._elements[type][x + 'x' + y] = name + '@' + owner;
+			return this._elements[type][x + 'x' + y] = value;
 		
 		this._elements[type][x + 'x' + y] = this._elements[type][x + 'x' + y] || {};
-		return this._elements[type][x + 'x' + y][z] = name + '@' + owner;
+		return this._elements[type][x + 'x' + y][z] = value;
 	}
 
 	getElements(type) {
@@ -54,7 +77,7 @@ export class Board {
 
 	setBoardSize(w, h) {
 		this._boardSize = [w, h];
-		this._hasStructChanded = true;
+		this._hasStructChanged = true;
 	}
 
 
@@ -83,13 +106,13 @@ export class Board {
 
 		this._elements = $.extend(true, {}, json.elements);
 
-		this._hasStructChanded = true;
+		this._hasStructChanged = true;
 	}
 
 	_structHasChangedSinceLastTime() {
-		let changed = this._hasStructChanded;
+		let changed = this._hasStructChanged;
 
-		this._hasStructChanded = false;
+		this._hasStructChanged = false;
 
 		return changed;
 	}

@@ -15,6 +15,55 @@ export class GameGUI {
 		for(let map in maps)
 			Board.maps[map] = maps[map];
 
+
+		$('canvas').mouseup( (ev) => {
+
+			let px = ev.pageX;
+			let py = ev.pageY - $('canvas').position().top;;
+			let coords = this._canvas.PixelsToCoord(px, py);
+
+			if(coords == null)
+				return;
+
+			if( ev.which != 3 && ev.which != 1)
+				return;
+
+			let currentPlayer = this._game.currentPlayer();
+
+			let scores = this._game.scores();
+			let idx = scores.findIndex( e => e[0] == currentPlayer );
+			idx = (idx + 1) % scores.length;
+			let next_player = scores[idx][0];
+
+			let action = {
+				action: { type: 'debug' },
+				consequencies: {
+					added: [],
+					deleted: [],
+					scores: [],
+					next_player: next_player
+				}
+			};
+
+			if( ev.which == 1) {
+				action.consequencies.added.push([currentPlayer, 'pawns', 'default', ...coords]);
+				//this._game._board.addElement(this._game.currentPlayer(), 'pawns', 'default', ...coords);
+			}
+			if( ev.which == 3) {
+
+				action.consequencies.scores.push([currentPlayer, 1]);
+				action.consequencies.next_player = currentPlayer;
+				// TODO get owner + draw...
+				//action.consequencies.deleted.push(...coords);
+				//this._game._board.removeElement('pawns', ...coords);
+			}
+
+			this._game.addAction(action);
+			this._saveCurrent();
+
+			this._updateGame();
+		});
+
 		$('canvas').mousemove( (ev) => {
 			let px = ev.pageX;
 			let py = ev.pageY - $('canvas').position().top;
@@ -30,6 +79,13 @@ export class GameGUI {
 			}
 			
 			this._canvas.draw();
+		});
+
+		$('canvas').on("contextmenu", (ev) => {
+
+			let coords = this._canvas.PixelsToCoord(ev.pageX, ev.pageY - $('canvas').position().top);
+			if(coords != null)
+				ev.preventDefault();
 		});
 
 		$('#loadmap-select').on('change', () => {
@@ -156,6 +212,7 @@ export class GameGUI {
 				}
 			});
 
+			this._saveCurrent();
 			this._updateGame();
 		});
 

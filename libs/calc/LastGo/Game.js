@@ -38,17 +38,16 @@ export class Game {
 
 		this._history.length = this._cur + 1;
 		this._history.push(action);
-		this.next();
-
-		return true;
+		
+		return this.next();
 	}
 
 	next() {
-		this.setCur(this._cur+1);
+		return this.setCur(this._cur+1);
 	}
 
 	prev() {
-		this.setCur(this._cur-1);
+		return this.setCur(this._cur-1);
 	}
 
 	setCur(cur) {
@@ -58,8 +57,36 @@ export class Game {
 		if( cur >= this._history.length)
 			return false;
 
-		//TODO MODIFICATIONS...
-		this._cur = cur;
+		let direction = this._cur < cur ? 1 : -1;
+
+		while ( this._cur != cur ) {
+
+			if( direction == 1)
+				this._cur += direction;
+
+			for(let score of this._history[this._cur].consequencies.scores) {
+				let idx = this._scores.findIndex( e => e[0] == score[0]);
+				this._scores[idx][1] += direction * score[1];
+			}
+
+			let {added, deleted} = this._history[this._cur].consequencies;
+
+			if( direction == -1)
+				[added, deleted] = [deleted, added];
+
+			for(let del of deleted) {
+				console.log('del');
+				this._board.removeElement(...del);
+			}
+
+			for(let add of added) {
+				console.log('add');
+				this._board.addElement(...add);
+			}
+
+			if( direction == -1)
+				this._cur += direction;
+		}
 		
 		return true;
 	}

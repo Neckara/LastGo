@@ -204,7 +204,7 @@ export class BoardCanvas {
 								this._phantomElements[type]
 							  : this._board.getElements(type);
 
-		let size = this._bsize;
+		let size = this._bsize = this._board.boardSize();
 
 		for(let key in elements) {
 
@@ -338,33 +338,46 @@ export class BoardCanvas {
 
 	draw() {
 
-		if( this._board._structHasChangedSinceLastTime() ) {
-			this._redraw();
-			this._resetChanges();
-			console.log('redraxed');
+		if( this._isDrawing ) {
+			this._asked_drawing = true;
 			return;
 		}
 
-		let changes = this._changes(); // must be done before _redraw();
+		this._isDrawing = true;
+
+		if( this._board._structHasChangedSinceLastTime() ) {
+
+			this._resetChanges();
+			this._asked_drawing = false;
+
+			let _draw = async () => {
+
+				await this._redraw();
+				this._isDrawing = false;
+
+				if(this._asked_drawing)
+					this.draw();
+			}
+
+			_draw();
+			return;
+		}
+
+		let changes = this._changes();
 		this._resetChanges();
 
-		// this._hightligths_changes()
-		// this._phantomElement_changes()
-		// 
-		// this._changes()
-
-		
-
-				
-
-		if( changes.size == 0)
+		if( changes.size == 0) {
+			this._isDrawing = false;
 			return;
+		}
 
 		this._drawBackground(changes);
 		this._drawElements('links', changes);
 		this._drawElements('bases', changes);
 		this._drawElements('pawns', changes);
 		this._drawHighlight(changes);
+
+		this._isDrawing = false;
 	}
 
 	async _redraw() {
