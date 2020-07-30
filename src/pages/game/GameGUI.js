@@ -19,6 +19,9 @@ export class GameGUI {
 
 		$('canvas').mouseup( (ev) => {
 
+			if( this._game_rules.isEndOfGame() )
+				return;
+
 			let px = ev.pageX;
 			let py = ev.pageY - $('canvas').position().top;;
 			let coords = this._canvas.PixelsToCoord(px, py);
@@ -36,26 +39,13 @@ export class GameGUI {
 					this._updateGame();
 				}				
 			}
-
-			/*
-			if( ev.which == 1) {
-				action.consequencies.added.push([currentPlayer, 'pawns', 'default', ...coords]);
-				//this._game._board.addElement(this._game.currentPlayer(), 'pawns', 'default', ...coords);
-			}*/
-
-			/*
-			if( ev.which == 3) {
-
-				action.consequencies.scores.push([currentPlayer, 1]);
-				action.consequencies.next_player = currentPlayer;
-				// TODO get owner + draw...
-				//action.consequencies.deleted.push(...coords);
-				//this._game._board.removeElement('pawns', ...coords);
-			}*/
-
 		});
 
 		$('canvas').mousemove( (ev) => {
+
+			if( this._game_rules.isEndOfGame() )
+				return;
+
 			let px = ev.pageX;
 			let py = ev.pageY - $('canvas').position().top;
 			let coords = this._canvas.PixelsToCoord(px, py);
@@ -205,25 +195,11 @@ export class GameGUI {
 
 		$('#pass-btn').click( (ev) => {
 
-			let scores = this._game.scores();
+			if( this._game_rules.pass( this._game.currentPlayer() ) ) {
 
-			let idx = scores.findIndex( e => e[0] == this._game.currentPlayer() );
-			idx = (idx + 1) % scores.length;
-
-			let next_player = scores[idx][0];
-
-			this._game.addAction({
-				action: { type: 'pass' },
-				consequencies: {
-					added: [],
-					deleted: [],
-					scores: [],
-					next_player: next_player
-				}
-			});
-
-			this._saveCurrent();
-			this._updateGame();
+				this._saveCurrent();
+				this._updateGame();
+			}
 		});
 
 		$('#prev-btn').click( (ev) => {
@@ -285,6 +261,12 @@ export class GameGUI {
 
 	_updateGame() {
 
+		this._canvas.clearHighlights();
+		this._canvas.clearPhantomElements();
+
+		if(this._game_rules.isEndOfGame())
+			this._endOfGame();
+
 		let players = $('#players');
 		let scores = this._game.scores();
 
@@ -325,6 +307,23 @@ export class GameGUI {
 		}
 		
 		this._updateGame();
+	}
+
+	_endOfGame() {
+
+
+		let results = this._game_rules.finalResult();
+		for(let player in results ) {
+
+			let res = results[player];
+			let color = res[0];
+
+			for(let i = 0; i < res[1].length; ++i)
+				this._canvas.highlight( ...res[1][i], color );
+
+
+		}
+		console.log('end of game');
 	}
 }
 

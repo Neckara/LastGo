@@ -14,6 +14,10 @@ export default class {
 		return ! reason;
 	}
 
+	static points() {
+		return 0;
+	}
+
 	static destroyPawn(player, x, y, rules, board) {
 
 		let pos = x + 'x' + y;

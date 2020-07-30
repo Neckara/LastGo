@@ -30,6 +30,21 @@ export class Game {
 		this._cur = 0;
 	}
 
+	isEndOfGame() {
+		return this._history[this._cur].action.type === 'end';
+	}
+	allPreviousPassed() {
+
+		if(this._cur < this._scores.length - 1) // because first one is start
+			return false;
+
+		for(let i = 0; i < this._scores.length - 1; ++i)
+			if( this._history[this._cur - i].action.type !== 'pass' )
+				return false;
+
+		return true;
+	}
+
 	//TODO compare states (has same state = in rules)
 
 	addAction(action) {
@@ -100,6 +115,11 @@ export class Game {
 
 	map() {
 		return this._map;
+	}
+
+	neutralColor() {
+
+		return this._board.players()['Neutral'];
 	}
 
 	scores() {

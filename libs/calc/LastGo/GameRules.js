@@ -36,6 +36,9 @@ export class GameRules {
 
 	canPutPawn(owner, type, name, x, y, z = null) {
 
+		if( this.isEndOfGame() )
+			return false;
+
 		if( type != 'pawns')
 			return false;
 		if( z !== null)
@@ -93,9 +96,116 @@ export class GameRules {
 		return true;
 	}
 
-	pass() {
+	isEndOfGame() {
+		return this._game.isEndOfGame();
+	}
 
-		//TODO RULE.
+	_computeFinalBases() {
+
+		let size = this._board.boardSize();
+
+		let result = {};
+
+		for(let i = 0; i < size[0]; ++i)
+			for(let j = 0; j < size[0]; ++j) {
+
+				let elem = this._board.getElements('pawns')[i + 'x' + j];
+				if( elem !== undefined ) {
+					elem = elem.split('@')[1];
+
+					result[elem] = result[elem] || [];
+
+					result[elem].push([i,j]);
+					continue;
+				}
+
+				elem = this._board.getElements('bases')[i + 'x' + j];
+				if( elem === undefined )
+					continue;
+
+				elem = elem.split('@')[1];
+
+				if(elem == 'Neutral') {
+
+					let limits = this.getLimits('Neutral', i, j );
+
+					let others = [...new Set([... Array.from(limits.enemies, e => e[0])])];
+				
+					if(others.length == 1)
+						elem = others[0];
+				}
+
+				result[elem] = result[elem] || [];
+				result[elem].push([i,j]);
+			}
+
+		return result;
+	}
+
+	finalResult() {
+
+		let result = this._computeFinalBases();
+
+		for(let key in result)
+			result[key] = [ key === 'Neutral' ? this._game.neutralColor(): this._game.players()[key][1],   result[key] ];
+
+		return result;
+	}
+
+	pass(player) {
+
+		if( this.isEndOfGame() )
+			return false;
+
+		if( player != this._game.currentPlayer() )
+			return false;
+
+		if( this._game.allPreviousPassed() ) {
+
+			let final = this._computeFinalBases();
+
+			let scores = {};
+
+			for(let player in final) {
+
+				if(player == 'Neutral')
+					continue;
+
+				let sum = 0;
+
+				for(let pos of final[player] ) {
+
+					let base = this._board.getElements('bases')[ pos[0] + 'x' + pos[1] ];
+					let base_name = base.split('@')[0];
+					let BASE = this._getRuleFor('bases', base_name);
+					sum += BASE.points(player, pos[0], pos[1], this, this._board);
+				}
+
+				scores[player] = sum;
+			}
+
+			this._game.addAction({
+				action: { type: 'end' },
+				consequencies: {
+					added: [],
+					deleted: [],
+					scores: Object.entries(scores),
+					next_player: this._nextPlayer()
+				}
+			});
+
+			return true;
+		}
+
+		this._game.addAction({
+			action: { type: 'pass' },
+			consequencies: {
+				added: [],
+				deleted: [],
+				scores: [],
+				next_player: this._nextPlayer()
+			}
+		});
 
 		return true;
 	}

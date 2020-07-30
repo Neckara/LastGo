@@ -65,6 +65,21 @@ export default class Bases {
 		return;
 	}
 
+	static points(player, x, y, rules, board) {
+
+		let pawn = board.getElements('pawns')[x + 'x' + y];
+
+		let points = 1;
+		if(pawn !== undefined) {
+			let pawn_name = pawn.split('@')[0];
+			let PAWN = rules._getRuleFor('pawns', pawn_name);
+
+			points += PAWN.points(player, x, y, rules, board);
+		}
+
+		return points;
+	}
+
 	static destroyPawn(player, consequencies, x, y, rules, board) {
 
 		let pos = x + 'x' + y;
@@ -131,6 +146,17 @@ export default class Bases {
 		for( let neighbour of neighbours ) {
 
 			if(  board.getElements('pawns')[neighbour] === undefined ) {
+
+				if( data.player == 'Neutral' ) {
+
+					if( ! data.visited.has( neighbour ) ) {
+						to_visits.push(neighbour);
+						data.group.add( neighbour );
+						data.visited.add( neighbour )
+					}
+					continue;
+				}
+
 				data.freedoms.add(neighbour);
 				continue;
 			}
