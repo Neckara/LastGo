@@ -39,7 +39,6 @@ export class Editor {
 				h = 1;
 
 			this._board.setBoardSize(w, h);
-			this._canvas.draw();
 		});
 		$('#board_width').trigger('input');
 
@@ -60,7 +59,7 @@ export class Editor {
 			if(coords !== null) {
 
 				let angle = [];
-				if( this._selectedElement && this._selectedElement[0] == 'links') {
+				if( this._selectedElement && this._selectedElement[0] == 'Links') {
 					angle = this._canvas.PixelsToAngle(px, py);
 
 					let prec = 360/8;
@@ -80,12 +79,10 @@ export class Editor {
 
 					angle = [beg_angle, end_angle];
 				}
+				//TODO ADD PHANTOMS !!!
 
-
-				this._canvas.highlight(...coords, ...angle);
+				this._canvas.addHighlight(...coords, null, ...angle);
 			}
-			
-			this._canvas.draw();
 		});
 
 
@@ -103,7 +100,7 @@ export class Editor {
 				return;
 
 			let z;
-			if( this._selectedElement[0] == 'links')
+			if( this._selectedElement[0] == 'Links')
 				z = this._lastAngle;
 
 			if( ev.which != 3 && ev.which != 1)
@@ -114,7 +111,6 @@ export class Editor {
 			if( ev.which == 3)
 				this._board.removeElement(this._selectedElement[0], ...coords, z);
 
-			this._canvas.draw();
 			this._saveCurrent();
 		});
 
@@ -133,7 +129,6 @@ export class Editor {
 			this._board.modifyPlayer(name, color);
 			this._updatePlayers();
 
-			this._canvas.draw();
 			this._saveCurrent();
 		});
 
@@ -174,16 +169,28 @@ export class Editor {
 			this._board.delPlayer(name);
 			this._updatePlayers();
 
-			this._canvas.draw();
 			this._saveCurrent();
 		});
 
 		// Select element
+		$('#select_Elements_menu > li > a').on('shown.bs.tab', (ev) => {
+
+			let href = $(ev.target).attr('href');
+
+			if( href === '#select_Backgrounds')
+				return;
+
+			$( href ).children().first().trigger('click');
+
+			if( href === '#select_Links')
+				this._showLinks();
+		});
+
 		$('#select_Elements').children().each( function() {
 
 			let elem = $(this);
 
-			let type = elem.attr('id').slice('select_'.length).toLowerCase();
+			let type = elem.attr('id').slice('select_'.length);
 			let res = pthis._ressources[type] || {};
 
 			elem.empty();
@@ -199,8 +206,8 @@ export class Editor {
 				img.attr('title', name);
 				img.prop('id', 'Select_' + type + '-' + name.replace(/\./g, '-') );
 
-				if(type == 'links')
-					img.addClass('links_' + name.split('_').slice(-1)[0]);
+				if(type == 'Links')
+					img.addClass('Links_' + name.split('_').slice(-1)[0]);
 
 				img.click( () => {
 
@@ -219,9 +226,7 @@ export class Editor {
 
 			ev.preventDefault();
 
-			this._board.removeAllElements();
-			this._canvas.draw();
-
+			this._board.clearElements();
 			this._saveCurrent();
 		});
 
@@ -323,7 +328,6 @@ export class Editor {
 
 			this._board.import( Board.maps[selected] );
 			this._updatePlayers();
-			this._canvas.draw();
 		});
 
 		$('#selectMap').trigger('change');
@@ -347,7 +351,6 @@ export class Editor {
 
 		this._board.import(data);
 		this._updatePlayers();
-		this._canvas.draw();
 
 		return true;
 	}
@@ -417,14 +420,14 @@ export class Editor {
 	_showLinks() {
 
 		$('#select_Links img').addClass('d-none');
-		$('#select_Links img.links_' + this._lastAngle).removeClass('d-none');
+		$('#select_Links img.Links_' + this._lastAngle).removeClass('d-none');
 
-		if( this._selectedElement && this._selectedElement[0] == 'links') {
+		if( this._selectedElement && this._selectedElement[0] == 'Links') {
 
 			let newSelected = this._selectedElement[1].split('_');
 			newSelected[newSelected.length-1] = this._lastAngle;
 			newSelected = newSelected.join('_')
-			$('#select_Links img#Select_links-' + newSelected).trigger('click');
+			$('#select_Links img#Select_Links-' + newSelected).trigger('click');
 		}
 	}
 }

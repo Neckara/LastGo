@@ -1,403 +1,229 @@
 import {Ressources} from './Ressources.js';
+import {ElementsList} from 'calc/LastGo/ElementsList';
+
 const $ = require('jquery');
 
 export class BoardCanvas {
 
-	constructor(board, canvas, ressources, gridWidth = 1) {
-		this._board = board;
+	constructor(board, target, ressources, gridWidth = 1) {
 
-		this._canvas = canvas;
 		this._ressources = ressources;
-		this._ctx = this._canvas[0].getContext("2d");
-
-		this._highlights = [];
-		this._phantomElements = [];
-
-		this._lastModifiedPhantom = [];
+		this._board = board;
 		this._lw = gridWidth;
 
-		$(window).on('resize', () => {
-			this.draw(true);
-		});
+		this._target = target;
+
+		let layers = [
+						'Background', 'Grid',
+						'Links', 'PhantomLinks',
+						'Bases', 'PhantomBases',
+						'Pawns', 'PhantomPawns',
+						'Highlights'
+					];
+
+		this._layers = {};
+		this._layersID = {};
+		this._canvas = {};
+
+		let layerID = 0;
+		for(let layer_name of layers) {
+			let layer = $('<canvas/>');
+			this._canvas[layer_name] = layer[0];
+			this._layers[layer_name] = layer[0].getContext("2d");
+			this._target.append(layer);
+			this._layersID[layer_name] = ++layerID;
+		}
+		this._drawLevel = layers.length;
+
+		this._highlights = new ElementsList('Highlights');
+		this._phantomElements = {};
+
+		let handleFrame = () => {
+
+			window.requestAnimationFrame( handleFrame );
+
+			this._draw();
+		};
+
+		window.requestAnimationFrame( handleFrame );
 	}
 
-	_drawBackground(changes = null) {
+	setDrawLevel(drawLevel) {
 
-		if( changes === null) {
-			this._ctx.fillStyle = "green";
-			this._ctx.fillRect(0, 0, this._canvas[0].width, this._canvas[0].height);
-			return;
+		if( typeof drawLevel === 'string')
+			drawLevel = this._layersID[drawLevel] + 1;
+
+		this._drawLevel = drawLevel;
+	}
+
+	_draw() {
+
+		let fulldraw = false;
+
+		let new_w = this._target.width();
+		let new_h = this._target.height();
+
+		if( this._w !== new_w || this._h !== new_h ) {
+
+			this._w = new_w;
+			this._h = new_h
+			fulldraw = true;
 		}
 
-		this._ctx.fillStyle = "green";
-		for(let change of changes) {
+		if( this._boardSize !== this._board.boardSize() ) {
 
-			let [x,y] = Array.from( change.split('x'), e => parseInt(e) );
-
-			let pos = this._CoordToPixels(x, y);
-			this._ctx.fillRect(pos[0], pos[1], this._cw, this._cw);
-		}
-	}
-
-	_drawGrid() {
-
-		this._ctx.fillStyle = "black";
-
-		//TODO move own function.
-		let size = this._bsize = this._board.boardSize();
-		let boffset = 20;
-		let lw = this._lw;
-		let cw = this._cw = Math.floor( Math.min(
-													(this._canvas[0].width - 2*boffset - size[0]*lw) / size[0],
-													(this._canvas[0].height - 2*boffset- size[1]*lw) / size[1] )
-												);
-		let left_offset = this._loffset = Math.ceil( (this._canvas[0].width - lw - (cw+lw) * size[0])/2);
-		let top_offset = this._toffset = Math.ceil( (this._canvas[0].height - lw - (cw+lw) * size[1])/2);
-
-		// vlines
-		for(let i = 0; i <= size[0]; ++i)
-			this._ctx.fillRect(left_offset + (cw+lw) * i, top_offset, lw, lw + (cw+lw) * size[1] );
-
-		// hlines
-		for(let i = 0; i <= size[1]; ++i)
-			this._ctx.fillRect(left_offset, top_offset + (cw+lw) * i, lw + (lw+cw) * size[0], lw);
-	}
-
-	_CoordToPixels(x, y) {
-
-		let px = this._loffset + this._lw + x * (this._cw + this._lw);
-		let py = this._toffset + this._lw + y * (this._cw + this._lw);
-
-		return [px, py];
-	}
-
-	PixelsToCoord(px, py) {
-
-		let x = Math.floor( (px - this._loffset - this._lw) / (this._cw + this._lw) );
-		let y = Math.floor( (py - this._toffset - this._lw) / (this._cw + this._lw) );
-
-		let bs = this._board.boardSize();
-
-		if( x < 0 || y < 0 || x >= bs[0] || y >= bs[1] )
-			return null;
-
-		return [x, y];
-	}
-
-	// https://www.mathsisfun.com/polar-cartesian-coordinates.html
-	PixelsToAngle(px, py) {
-
-		let [x, y] = this.PixelsToCoord(px, py);
-		let [tpx, tpy] = this._CoordToPixels(x, y);
-
-		px -= tpx;
-		py -= tpy;
-
-		px = (px - this._cw/2);
-		py = (py - this._cw/2);
-
-		let angle = Math.atan( py / px ) / Math.PI * 180;
-		if( px < 0)
-			angle += 180;
-
-		if( px > 0 &&  py < 0 )
-			angle += 360;
-
-		return 360 - angle;
-	}
-
-	_drawImage(img, owner, x, y) {
-
-		img = img.image(owner) || img;
-
-		let pos = this._CoordToPixels(x, y);
-		this._ctx.drawImage(img, 0, 0, img.width, img.height, pos[0], pos[1], this._cw, this._cw);
-	}
-
-	clearHighlights() {
-		this._highlights.length = 0;
-	}
-
-	highlight(x, y, beg_angle = null, end_angle = null, color = 'rgba(225,225,225,0.5)') {
-
-		if( end_angle === null && beg_angle !== null) {
-			color = beg_angle;
-			beg_angle = null;
+			this._boardSize = this._board.boardSize();
+			fulldraw = true;
 		}
 
-		this._highlights.push([x, y, beg_angle, end_angle, color]);
-	}
+		if( fulldraw ) {
 
-	removeHighlight(x, y, beg_angle = null, end_angle = null, color = 'rgba(225,225,225,0.5)') {
+			for(let layer in this._layers) {
+				
+				this._canvas[layer].width = this._w;
+				this._canvas[layer].height = this._h;
 
-		if( end_angle === null && beg_angle !== null) {
-			color = beg_angle;
-			beg_angle = null;
-		}
-
-		let test = [x, y, beg_angle, end_angle, color];
-
-		this._highlights = this._highlights.filter( e => e.every( (e, idx) => e == test[i] ) );
-	}
-
-	_angleToCoord(angle, cx, cy, cw) {
-
-		let isCos = ! (angle > 45 && angle < 135 || angle > 225 && angle < 315);
-
-		angle = 360 - angle;
-		angle = angle / 180 * Math.PI;
-
-		if( isCos )
-			cw = cw / Math.cos(angle);
-		else
-			cw = cw / Math.sin(angle);
-
-		cw = Math.abs(cw);
-
-		let x = cw/2 * Math.cos(angle);
-		let y = cw/2 * Math.sin(angle);
-
-		return [cx + x, cy + y];
-	}
-
-	_drawHighlight(changes = null) {
-
-		for(let [x, y, beg_angle, end_angle, color] of this._highlights) {
-
-			if( changes && ! changes.has(x + 'x' + y) )
-				continue;
-
-			let pos = this._CoordToPixels(x, y);
-			this._ctx.fillStyle = color;
-
-			let fillcolor = this._ctx.fillStyle;
-			if(fillcolor[0] == '#' && fillcolor.length == 7)
-				this._ctx.fillStyle = fillcolor + 'C0';
-
-			if( beg_angle == null)
-				this._ctx.fillRect(pos[0], pos[1], this._cw, this._cw);
-			else {
-
-				let cx = pos[0] + this._cw/2;
-				let cy = pos[1] + this._cw/2;
-
-				this._ctx.beginPath();
-			    this._ctx.moveTo(cx, cy);
-
-				this._ctx.lineTo( ... this._angleToCoord(beg_angle, cx, cy, this._cw) );
-
-				if( beg_angle < 45 && end_angle > 45)
-					this._ctx.lineTo( ... this._angleToCoord(45, cx, cy, this._cw) );
-				if( beg_angle < 135 && end_angle > 135)
-					this._ctx.lineTo( ... this._angleToCoord(135, cx, cy, this._cw) );
-				if( beg_angle < 225 && end_angle > 225)
-					this._ctx.lineTo( ... this._angleToCoord(225, cx, cy, this._cw) );
-				if( beg_angle < 315 && end_angle > 315)
-					this._ctx.lineTo( ... this._angleToCoord(315, cx, cy, this._cw) );
-
-			    this._ctx.lineTo( ... this._angleToCoord(end_angle, cx, cy, this._cw) );
-
-			    this._ctx.fill();
+				this._layers[layer].clearRect(0, 0, this._w, this._h);
 			}
+
+			this._prevElements = {};
+			this._prev_highlights = new ElementsList('Highlights');
+			this._drawBackground();
+			this._drawGrid();
 		}
+
+		//TODO LOAD RESSOURCES => IF NOT LOADED : DO NOT ADD IT !!/ => Will force redraw next frame.
+		//TODO PUT COLORS AGAIN.
+		// await Ressources.loadAllColored(this._ressources, this._board.players() );
+		//  player changed => Elements associated to player (only).
+
+		for(let type of ['Links', 'Bases', 'Pawns'] ) {
+
+			this._drawElements(type, fulldraw);
+			this._drawPhantomElements(type, fulldraw);
+		}
+
+		this._drawHighlights( fulldraw );
 	}
 
-	_drawElements(type, changes = null, _phantom = false) {
 
-		let elements = _phantom ?
-								this._phantomElements[type]
-							  : this._board.getElements(type);
+	_drawImage(type, img, owner, x, y) {
 
-		let size = this._bsize = this._board.boardSize();
+		img = img.image() || img; //TODO OWNER
 
-		for(let key in elements) {
+		let [px, py] = this._CoordToPixels(x, y);
+		this._layers[type].drawImage(img, 0, 0, img.width, img.height, px, py, this._cw, this._cw);
+	}
 
-			if( changes !== null && ! changes.has(key) )
+	_clearCase(layer, x, y = null) {
+
+		if( typeof layer === 'string')
+			layer = this._layers[layer];
+
+		let [px, py] = this._CoordToPixels(x, y);
+		layer.clearRect( px, py, this._cw, this._cw );
+	}
+
+	_drawPhantomElements(type, fulldraw = false) {
+
+		return this._drawElements('Phantom' + type, fulldraw, new ElementsList( type ) );
+	}
+
+	_drawElements(type, fulldraw = false, elements = this._board.getElements(type) ) {
+
+		if( this._drawLevel <= this._layersID[type] )
+			return;
+
+		let prev = this._prevElements[type] || new ElementsList( type );
+
+		for(let idx of prev.keys() ) {
+
+			if( ! elements.hasEntry(idx, prev.get(idx) ) )
+				this._clearCase(type, idx);
+		}
+
+
+		let nextElements = elements.clone();
+
+		let size = this._boardSize;
+		for(let idx of elements.keys() ) {
+
+			if( prev.hasEntry(idx, elements.get(idx) ) ) //TODO PLAYER COLORS ???
 				continue;
 
-			let name = elements[key];
-			let coords = Array.from( key.split('x'), e => parseInt(e) );
+			let coords = ElementsList.getXY(idx);
 
 			if(coords[0] < 0 || coords[0] >= size[0] || coords[1] < 0 || coords[1] >= size[1])
 				continue;
 
-			let imgs = typeof name == 'string' ?
-											  [ name ]
-											: Object.values(elements[key])
+			if( ! type.endsWith('Links') ) {
 
-			for(let img of imgs) {
+				let [name, owner] = elements.get(idx);
+				let img = this._ressources[type][name];
+				this._drawImage(type, img, owner, ...coords);
+			} else {
 
-				img = img.split('@');
-				img[0] = this._ressources[type][img[0]];
+				for(let [name, owner] of Object.values(elements.get(idx) ) ) {
 
-				this._drawImage(...img, ...coords);
-			}
-		}
-
-		if( ! _phantom)
-			this._drawElements(type, changes, true);
-	}
-
-	addPhantomElement(type, name, owner, x,y,z = null) {
-
-		this._phantomElements[type] = this._phantomElements[type] || {};
-
-		if( z === null)
-			this._phantomElements[type][x + 'x' + y] = name + '@' + owner;
-		else
-			this._phantomElements[type][x + 'x' + y][z] = name + '@' + owner;
-	}
-
-	removePhantomElement(type, x,y,z = null) {
-
-		if(z === null)
-			delete this._phantomElements[type][x + 'x' + y];
-		else
-			delete this._phantomElements[type][x + 'x' + y][z];
-	}
-
-	clearPhantomElements() {
-		this._phantomElements = {};
-	}
-
-	_hightligths_changes() {
-
-		let changes = [];
-
-		let min = Math.min( this._prevHighlights.length, this._highlights.length );
-
-		for(let i = 0; i < min; ++i)
-			if( this._highlights[i].some( (e, j) => e != this._prevHighlights[i][j]) ) {
-				changes.push( this._highlights[i] );
-				changes.push( this._prevHighlights[i] );
-			}
-
-		changes = [].concat(	changes,
-								this._prevHighlights.slice(min),
-								this._highlights.slice(min) );
-
-		return Array.from(changes, e => e[0] + 'x' + e[1]);
-	}
-
-	_phantomElement_changes() {
-
-		let changes = [];
-
-		let types = new Set(...Object.keys(this._prevPhantomElements),
-							...Object.keys(this._phantomElements) );
-
-		for(let type of types) {
-
-			let ptype = this._prevPhantomElements[type] || {};
-			let ctype = this._phantomElements[type] || {};
-
-			let keys = new Set(	...Object.keys(ptype),
-								...Object.keys(ctype) );
-
-			for(let key of keys) {
-
-				if(ptype[key] === undefined || ctype[key] === undefined ) {
-					changes.push(key);
-					continue;
+					let img = this._ressources[type][name];
+					this._drawImage(type, img, owner, ...coords);
 				}
-
-				if( typeof ptype[key] == 'string' && typeof ctype[key] == 'string') {
-
-					if( ptype[key] != ctype[key] )
-						changes.push(key);
-					continue;
-				}
-
-				if(		typeof ptype[key] == 'string' && typeof ctype[key] != 'string'
-					||  typeof ptype[key] != 'string' && typeof ctype[key] == 'string') {
-					changes.push(key);
-					continue;
-				}
-
-				let zs = new Set(	...Object.keys(ptype[key]),
-									...Object.keys(ctype[key]) );
-
-				for(let z of zs)
-					if( ptype[key][z] != ctype[key][z])
-						changes.push(key);
 			}
 		}
 
-		return changes;
+		this._prevElements[type] = nextElements;
 	}
 
-	_changes() {
+	_drawBackground() {
+		//TODO personnalize backgrounds.
 
-		return new Set([
-			...this._hightligths_changes(),
-			...this._phantomElement_changes(),
-			...this._board._getModifiedCases()]);
-	}
-
-	_resetChanges() {
-		this._board._getModifiedCases();
-		this._prevHighlights = this._highlights.slice();
-		this._prevPhantomElements = $.extend(true, {}, this._phantomElements);
-	}
-
-	draw(force_redraw = false) {
-
-		if( this._isDrawing ) {
-			this._asked_drawing = true;
+		if( this._drawLevel <= this._layersID.Background )
 			return;
-		}
 
-		this._isDrawing = true;
-
-		if( this._board._structHasChangedSinceLastTime() || force_redraw ) {
-
-			this._resetChanges();
-			this._asked_drawing = false;
-
-			let _draw = async () => {
-
-				await this._redraw();
-				this._isDrawing = false;
-
-				if(this._asked_drawing)
-					this.draw();
-			}
-
-			_draw();
-			return;
-		}
-
-		let changes = this._changes();
-		this._resetChanges();
-
-		if( changes.size == 0) {
-			this._isDrawing = false;
-			return;
-		}
-
-		this._drawBackground(changes);
-		this._drawElements('links', changes);
-		this._drawElements('bases', changes);
-		this._drawElements('pawns', changes);
-		this._drawHighlight(changes);
-
-		this._isDrawing = false;
+		let layer = this._layers.Background;
+		layer.fillStyle = "green";
+		layer.fillRect(0, 0, this._w, this._h);
 	}
 
-	async _redraw() {
+	_drawGrid() {
 
-		await Ressources.loadAllColored(this._ressources, this._board.players() );
 
-		this._canvas[0].width = this._canvas.width();
-		this._canvas[0].height = this._canvas.height();
+		if( this._drawLevel <= this._layersID.Grid )
+			return;
 
-		this._drawBackground();
-		this._drawGrid();
+		let size = this._boardSize;
+		let boffset = 20;
+		let lw = this._lw;
+		let cw = this._cw = Math.floor( Math.min(
+													(this._w - 2*boffset - size[0]*lw) / size[0],
+													(this._h - 2*boffset- size[1]*lw) / size[1] )
+												);
+		let left_offset = this._loffset = Math.ceil( (this._w - lw - (cw+lw) * size[0])/2);
+		let top_offset = this._toffset = Math.ceil( (this._h - lw - (cw+lw) * size[1])/2);
 
-		this._drawElements('links');
-		this._drawElements('bases');
-		this._drawElements('pawns');
 
-		this._drawHighlight();
+		let layer = this._layers.Grid;
+		layer.fillStyle = "black";
+
+		// vlines
+		for(let i = 0; i <= size[0]; ++i)
+			layer.fillRect(left_offset + (cw+lw) * i, top_offset, lw, lw + (cw+lw) * size[1] );
+
+		// hlines
+		for(let i = 0; i <= size[1]; ++i)
+			layer.fillRect(left_offset, top_offset + (cw+lw) * i, lw + (lw+cw) * size[0], lw);
 	}
+}
+
+window.__test = false;
+
+{
+	let req = require.context("./BoardCanvas/", true, /\.js$/);
+	req.keys().forEach(function(key){
+
+		let methods = req(key).methods;
+
+		for(let name in methods)
+			BoardCanvas.prototype[name] = methods[name];
+	});
 }

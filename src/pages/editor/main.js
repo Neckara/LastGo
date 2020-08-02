@@ -18,10 +18,12 @@ $( async () => {
 
 	await Ressources.loadAllDefaults();
 
-	let canvas = $('canvas');
+	let canvas = $('#canvas');
 
 	let board = new Board();
-	let bc = new BoardCanvas( board, canvas, Ressources.index );
+	let boardCanvas = new BoardCanvas( board, canvas, Ressources.index );
 
-	let editor = new Editor(board, bc, Ressources.index);
+	//boardCanvas.setDrawLevel('Grid');
+
+	let editor = new Editor(board, boardCanvas, Ressources.index);
 });

@@ -3,11 +3,21 @@ body {
 }
 
 
-canvas { 
+#canvas { 
   height: 100vh; 
   width: calc( 100vh / 9 * 16 ); 
   display: block;
+  position: relative;
   background-color: blue
+}
+
+#canvas > canvas {
+	height: 100%;
+	width: 100%;
+	display: block;
+	position: absolute;
+	top: 0px;
+	left: 0px;
 }
 
 #editorMenu {

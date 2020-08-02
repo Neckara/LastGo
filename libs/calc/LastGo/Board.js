@@ -1,3 +1,5 @@
+import {ElementsList} from 'calc/LastGo/ElementsList';
+
 export class Board {
 
 	constructor() {
@@ -5,27 +7,104 @@ export class Board {
 		this._boardSize = [9,9];
 		this._elements = {};
 
-
 		this._players = {};
+	}
 
-		this._changedCases = new Set();
+	boardSize() {
+		return this._boardSize;
+	}
+
+	setBoardSize(w, h) {
+
+		if( w > 0x7FFF || h > 0x7FFF )
+			throw new Error(`Board size is too big ! ${w}x${h}`);
+
+		this._boardSize = [w, h];
+	}
+
+	getValue( elem, owner = null) {
+
+		if( owner !== null)
+			return [elem, owner];
+
+		if( Array.isArray(elem) )
+			return elem;
+
+		return elem.split('@');
+	}
+
+	getStrValue( elem, owner = null) {
+		
+		if( owner !== null)
+			return elem + '@' + owner;
+
+		if( Array.isArray(elem) )
+			return elem.join('@');
+
+		return elem;
+	}
+
+	getElements(type) {
+		return this._elements[type] = this._elements[type] || new ElementsList(type);
+	}
+
+	clearElements() {
+		this._elements = {};
+	}
+
+	symmetricalRemoveElement(owner, type, name, x, y, z = null) {
+		return this.removeElement(type, x, y, z);
+	}
+
+	removeElement(type, x, y, z = null) {
+
+		if( typeof y === 'string' )
+			[y, z] = [undefined, y];
+
+		if( type !== 'Links' )
+			return this._elements[type].delete(x, y);
+		
+		if( ! this._elements[type].has(x, y) )
+			return;
+
+		delete this._elements[type].get(x, y)[z];
+	}
+
+	addElement(owner, type, name, x, y, z = null) {
+
+		if( typeof y === 'string' )
+			[y, z] = [undefined, y];
+		
+		this._elements[type] = this.getElements(type);
+		let value = [name, owner];
+
+		if(type !== 'Links')
+			return this._elements[type].set(x, y, value);
+		
+		if( ! this._elements[type].has(x, y) )
+			this._elements[type].set(x, y, {});
+
+		return this._elements[type].get(x, y)[z] = value;
+	}
+	
+
+	players() {
+		return this._players;
 	}
 
 	modifyPlayer(name, color) {
-		
 		this.addPlayer(name, color);
-		this._hasStructChanged = true;
 	}
 
 	addPlayer(name, color) {
-
 		this._players[name] = color;
-		this._hasStructChanged = true;
 	}
 
 	delPlayer(name) {
 
-
+		console.log('del player');
+		return;
+		//TODO !!!
 		for(let type in this._elements)
 			for(let key in this._elements[type]) {
 
@@ -47,92 +126,39 @@ export class Board {
 			}
 
 		delete this._players[name];
-		this._hasStructChanged = true;
 	}
-
-	removeElement(type, x, y, z = null, extraY = null, extraZ = null) {
-
-		if( extraY !== null) {
-			type = x;
-			x = z;
-			y = extraY;
-			z = extraZ;
-		}
-
-		if( z === null && this._elements[type][x + 'x' + y] === undefined)
-			return;
-		if( z !== null && (! this._elements[type][x + 'x' + y] || this._elements[type][x + 'x' + y][z] === undefined) )
-			return;
-
-		this._changedCases.add(x + 'x' + y);
-
-		if( z === null )
-			delete this._elements[type][x + 'x' + y];
-		
-		if(this._elements[type][x + 'x' + y])
-			delete this._elements[type][x + 'x' + y][z];
-	}
-
-	removeAllElements() {
-		this._elements = {};
-		this._hasStructChanged = true;
-	}
-
-	addElement(owner, type, name, x, y, z = null) {
-
-		this._elements[type] = this._elements[type] || {};
-
-		let value = name + '@' + owner;
-
-		if( z === null && this._elements[type][x + 'x' + y] == value)
-			return;
-		if( z !== null && this._elements[type][x + 'x' + y] && this._elements[type][x + 'x' + y][z] == value)
-			return;
-
-		this._changedCases.add(x + 'x' + y);
-
-		if( z === null )
-			return this._elements[type][x + 'x' + y] = value;
-		
-		this._elements[type][x + 'x' + y] = this._elements[type][x + 'x' + y] || {};
-		return this._elements[type][x + 'x' + y][z] = value;
-	}
-
-	getElements(type) {
-		return this._elements[type] || {};
-	}
-	
-	boardSize() {
-		return this._boardSize;
-	}
-
-	players() {
-		return this._players;
-	}
-
-	setBoardSize(w, h) {
-		this._boardSize = [w, h];
-		this._hasStructChanged = true;
-	}
-
 
 	export(sort = false) {
 
-		let elements = this._elements;
+		let elements = {};
 
-		if(sort) {
+		for(let type in this._elements ) {
 
-			for(let key in elements) {
+			elements[type] = {};
 
-				for(let pos in elements[key])
-					if( typeof elements[key][pos] !== 'string')
-						elements[key][pos] = Object.fromEntries(Object.entries(elements[key][pos]).sort());
+			for(let strIDX of this._elements[type].strIDX_keys() ) {
 
-				elements[key] = Object.fromEntries(Object.entries(elements[key]).sort());
+				elements[type][ strIDX ] = this._elements[type].get(strIDX);
+
+				if( type !== 'Links') {
+
+					elements[type][ strIDX ] = this.getStrValue( elements[type][ strIDX ] );
+					continue;
+				}
+				if(sort) {
+
+					for(let key in elements[type][ strIDX ] )
+						elements[type][ strIDX ][key] = this.getStrValue( elements[type][ strIDX ][key] );
+					elements[type][strIDX] = Object.fromEntries(Object.entries(elements[type][strIDX]).sort());
+				}
 			}
 
-			elements = Object.fromEntries(Object.entries(elements).sort());
+			if(sort)
+				elements[type] = Object.fromEntries(Object.entries(elements[type]).sort());
 		}
+
+		if(sort)
+			elements = Object.fromEntries(Object.entries(elements).sort());
 
 		let json = {
 			board_size: this.boardSize(),
@@ -155,26 +181,25 @@ export class Board {
 		for(let player in json.players)
 			this.addPlayer(player, json.players[player]);
 
-		this._elements = $.extend(true, {}, json.elements);
+		this._elements = {};
+		for(let type in json.elements)
+			this._elements[type] = new ElementsList(type);
 
-		this._hasStructChanged = true;
-	}
+		for(let type in this._elements)
+			for(let key in json.elements[type]) {
 
-	_structHasChangedSinceLastTime() {
-		let changed = this._hasStructChanged;
+				let value = json.elements[type][key];
 
-		this._hasStructChanged = false;
+				if(type !== 'Links') {
+					this._elements[type].set(key, this.getValue(value) );
+					continue;
+				}
 
-		return changed;
-	}
-
-	_getModifiedCases() {
-
-		let changes = new Set([...this._changedCases]);
-
-		this._changedCases.clear();
-
-		return changes;
+				let obj = {};
+				for(let key in value)
+					obj[key] = this.getValue( value[key] );
+				this._elements[type].set(key, obj);
+			}
 	}
 }
 
