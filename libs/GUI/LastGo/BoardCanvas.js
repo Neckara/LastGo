@@ -15,10 +15,10 @@ export class BoardCanvas {
 
 		let layers = [
 						'Background',
+						'Highlights',
 						'Links', 'PhantomLinks',
 						'Bases', 'PhantomBases',
 						'Pawns', 'PhantomPawns',
-						'Highlights',
 						'Grid'
 					];
 
@@ -90,7 +90,10 @@ export class BoardCanvas {
 			return;
 		}
 
-		this._drawElement(type, this._board.getElements(type).get(idx), idx);
+		let isPhantom = type.startsWith('Phantom');
+		let elements = isPhantom ? this._phantomElements[type] : this._board.getElements(type);
+
+		this._drawElement(type, elements.get(idx), idx);
 	}
 
 	async _partialDraw() {
@@ -114,7 +117,7 @@ export class BoardCanvas {
 		}
 
 		for(let type in this._partialOperations ) {
-			let elements = this._board.getElements(type);
+			let elements = type.startsWith('Phantom') ? this._phantomElements[type] : this._board.getElements(type);
 			for(let idx of this._partialOperations[type] )
 				this._drawElement(type, elements.get(idx), idx);
 		}
@@ -129,6 +132,7 @@ export class BoardCanvas {
 		this._waitingForFulldraw = true;
 
 		this._partialOperations = {};
+		this._phantomElements = {};
 
 		if( this._waitingForPartialDraw ) {
 			this._cancelPartialDraw = true;
@@ -170,7 +174,11 @@ export class BoardCanvas {
 
 		img = img.image(owner) || img;
 
+		if( type.startsWith('Phantom') )
+			this._layers[type].globalAlpha = 0.75;
 		this._layers[type].drawImage(img, 0, 0, img.width, img.height, px, py, this._cw, this._cw);
+		if( type.startsWith('Phantom') )
+			this._layers[type].globalAlpha = 1;
 	}
 
 	_drawElement(type, elements, idx, clear = true) {
@@ -187,10 +195,13 @@ export class BoardCanvas {
 		if(coords[0] < 0 || coords[0] >= size[0] || coords[1] < 0 || coords[1] >= size[1])
 			return;
 
-		let to_draws = type.endsWith('Links') ? Object.values(elements ) : [ elements ];
+		let to_draws = type === 'Links' ? Object.values(elements ) : [ elements ];
+
+		let isPhantom = type.startsWith('Phantom');
+		let ptype = isPhantom ? type.slice('Phantom'.length) : type;
 
 		for(let [name, owner] of to_draws) {
-			let img = this._ressources[type][name];
+			let img = this._ressources[ptype][name];
 			this._drawImage(type, img, owner, coords);
 		}
 	}

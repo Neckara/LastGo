@@ -72,6 +72,27 @@ export class Editor {
 				this._prev_highlight[0] = null;
 			}
 
+			let nextPhantom = [null, [null, null], null];
+			if( coords !== null && this._selectedElement ) {
+				let [type, name] = this._selectedElement;
+				let owner = this.selectedPlayer();
+				nextPhantom = [type, [name, owner], coords];
+			}
+
+			if( this._prevPhantom ) {
+				if( ! this._selectedElement || coords === null || ! ElementsList.areKeysEqual(coords, this._prevPhantom[2]) || nextPhantom[0] !== this._prevPhantom[0] ) {
+					this._canvas.removePhantomElement(...this._prevPhantom );
+					this._prevPhantom = null;
+				} else if( nextPhantom[1][0] != this._prevPhantom[1][0] || nextPhantom[1][1] != this._prevPhantom[1][1] ) {
+						this._prevPhantom = null;
+				}
+			}
+
+			if( coords !== null && ! this._prevPhantom && this._selectedElement ) {
+				this._canvas.addPhantomElement(...nextPhantom);
+				this._prevPhantom = nextPhantom;
+			}
+
 			if(coords !== null) {
 
 				let angle = [null, null];
@@ -241,7 +262,7 @@ export class Editor {
 			let type = href.slice('#select_'.length);
 			let layer = this._layers.indexOf(type);
 
-			if( layer < this._currentLayer )
+			if( layer > this._current_level )
 				this._changeLayerLevel( layer );
 
 			if( type === 'Background') {

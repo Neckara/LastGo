@@ -1,70 +1,30 @@
-/*
-	addPhantomElement(type, name, owner, x,y,z = null) {
+import {ElementsList} from 'calc/LastGo/ElementsList.js';
 
-		this._phantomElements[type] = this._phantomElements[type] || {};
+export let methods = {};
 
-		if( z === null)
-			this._phantomElements[type][x + 'x' + y] = name + '@' + owner;
-		else
-			this._phantomElements[type][x + 'x' + y][z] = name + '@' + owner;
-	}
+methods['clearPhantomElements'] = function() {
 
-	removePhantomElement(type, x,y,z = null) {
+	this._phantomElements = {};
 
-		if(z === null)
-			delete this._phantomElements[type][x + 'x' + y];
-		else
-			delete this._phantomElements[type][x + 'x' + y][z];
-	}
+	for(let layer in this._layers)
+		if(layer.startsWith('Phantom') )
+			this._layers[layer].clearRect(0, 0, this._w, this._h);
+}
 
-	clearPhantomElements() {
-		this._phantomElements = {};
-	}
+methods['addPhantomElement'] = function(type, elem, idx) {
 
+	let ptype = `Phantom${type}`;
 
-	_phantomElement_changes() {
+	this._phantomElements[ptype] = this._phantomElements[ptype] || new ElementsList(ptype);
 
-		let changes = [];
+	this._phantomElements[ptype].set(idx, elem);
+	this._partialDrawElement({type: ptype, idx: idx});
+}
 
-		let types = new Set(...Object.keys(this._prevPhantomElements),
-							...Object.keys(this._phantomElements) );
+methods['removePhantomElement'] = function(type, elem, idx) {
 
-		for(let type of types) {
+	let ptype = `Phantom${type}`;
 
-			let ptype = this._prevPhantomElements[type] || {};
-			let ctype = this._phantomElements[type] || {};
-
-			let keys = new Set(	...Object.keys(ptype),
-								...Object.keys(ctype) );
-
-			for(let key of keys) {
-
-				if(ptype[key] === undefined || ctype[key] === undefined ) {
-					changes.push(key);
-					continue;
-				}
-
-				if( typeof ptype[key] == 'string' && typeof ctype[key] == 'string') {
-
-					if( ptype[key] != ctype[key] )
-						changes.push(key);
-					continue;
-				}
-
-				if(		typeof ptype[key] == 'string' && typeof ctype[key] != 'string'
-					||  typeof ptype[key] != 'string' && typeof ctype[key] == 'string') {
-					changes.push(key);
-					continue;
-				}
-
-				let zs = new Set(	...Object.keys(ptype[key]),
-									...Object.keys(ctype[key]) );
-
-				for(let z of zs)
-					if( ptype[key][z] != ctype[key][z])
-						changes.push(key);
-			}
-		}
-
-		return changes;
-	}*/
+	this._phantomElements[ptype].delete(idx);
+	this._partialDrawElement({type: ptype, idx: idx});
+}
