@@ -67,17 +67,16 @@ export class Ressources {
 		await Promise.all(promises);
 	}
 
-	static loadAllColored(index, players) {
+	static async loadAllColored(index, players) {
 
-		let toRedraw = new Set();
+		let promises = [];
 
 		for(let type in index)
 			for(let name in index[type])
 				for(let player in players)
-					if( index[type][name].loadColored(player, players[player]) )
-						toRedraw.add(type + '.' + name + '.' + player);
+					promises.push( index[type][name].loadColored(player, players[player]) );
 
-		return toRedraw;
+		await Promise.all(promises);
 	}
 
 	colorContent( new_color, targetColor = '#000080') {
@@ -91,18 +90,10 @@ export class Ressources {
 		return content.join(',');
 	}
 
-	loadColored(name, color) {
+	async loadColored(name, color) {
 
-		if( ! this._colored[name] || this._colored[name]._color != color ) {
-			this._colored[name] = new Ressources( this.colorContent(color) , this._path + '@' + name, color);
-			this._colored[name].__flag = true;
-		}
-
-		if( ! this._colored[name]._img.complete || ! this._colored[name].__flag )
-			return false;
-
-		delete this._colored[name].__flag;
-		return true;
+		this._colored[name] = new Ressources( this.colorContent(color) , this._path + '@' + name, color);
+		return await this._colored[name].waitLoad();
 	}
 }
 

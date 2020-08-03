@@ -98,6 +98,11 @@ export class ElementsList {
 	}
 
 	static areKeysEqual(a, b) {
+
+		if( !a && !b)
+			return true;
+		if( a && !b || !a && b)
+			return false;
 		return ElementsList.getIDX(a) === ElementsList.getIDX(b);
 	}
 

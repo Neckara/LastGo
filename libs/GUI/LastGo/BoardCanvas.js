@@ -32,82 +32,167 @@ export class BoardCanvas {
 			this._target.append(layer);
 		}
 
-		this._highlights = new ElementsList('Highlights');
-		this._phantomElements = {};
+		$(window).on('resize', () => {
+			this._fullDraw();
+		});
 
-		let handleFrame = () => {
+		this._board.addEventListener('Board.SIZE_CHANGED', (ev) => {
+			this._fullDraw();
+		});
 
-			window.requestAnimationFrame( handleFrame );
+		this._board.addEventListener('Board.ELEMENT_ADDED', (ev) => {
+			this._partialDrawElement(ev.data);
+		});
 
-			this._draw();
-		};
+		this._board.addEventListener('Board.ELEMENT_REMOVED', (ev) => {
+			this._partialDrawElement(ev.data);
+		});
 
-		window.requestAnimationFrame( handleFrame );
+		this._board.addEventListener('Board.PLAYER_MODIFIED', (ev) => {
+			this._partialDraw();
+		});
+
+		this._board.addEventListener('Board.PLAYER_REMOVED', (ev) => {
+			//TODO REMOVE COLOR.
+		});
+
+		this._fullDraw();
 	}
 
 	showLayer(layer, show = true) {
 		$(this._canvas[layer]).toggleClass('d-none', ! show );
 	}
 
-	_draw() {
+	_missingPlayers() {
 
-		let fulldraw = false;
+		let players = {...this._board.players()};
 
-		let new_w = this._target.width();
-		let new_h = this._target.height();
+		if( ! this._players )
+			return this._players = players;
 
-		if( this._w !== new_w || this._h !== new_h ) {
+		let missing = {};
 
-			this._w = new_w;
-			this._h = new_h
-			fulldraw = true;
-		}
+		for(let player in players )
+			if( ! this._players[player] || this._players[player] != players[player] )
+				missing[player] = players[player];
 
-		if( this._boardSize !== this._board.boardSize() ) {
-
-			this._boardSize = this._board.boardSize();
-			fulldraw = true;
-		}
-
-		if( fulldraw ) {
-
-			for(let layer in this._layers) {
-				
-				this._canvas[layer].width = this._w;
-				this._canvas[layer].height = this._h;
-
-				this._layers[layer].clearRect(0, 0, this._w, this._h);
-			}
-
-			this._prevElements = {};
-			this._prev_highlights = new ElementsList('Highlights');
-			this._drawBackground();
-			this._drawGrid();
-		}
-
-		this._playersToRedraw = Ressources.loadAllColored(this._ressources, this._board.players() );
-
-		for(let type of ['Links', 'Bases', 'Pawns'] ) {
-
-			this._drawElements(type, fulldraw);
-			this._drawPhantomElements(type, fulldraw);
-		}
-
-		this._drawHighlights( fulldraw );
+		this._players = players;
+		return missing;
 	}
 
+	_partialDrawElement({type, idx}) {
+
+		if( this._waitingForFulldraw )
+			return;
+
+		if( this._waitingForPartialDraw ) {
+			(this._partialOperations[type] = this._partialOperations[type] || new Set()).add(idx);
+			return;
+		}
+
+		this._drawElement(type, this._board.getElements(type).get(idx), idx);
+	}
+
+	async _partialDraw() {
+
+		if( this._waitingForFulldraw || this._waitingForPartialDraw)
+			return;
+
+		this._waitingForPartialDraw = true;
+
+		let missing_players;
+		while( ! $.isEmptyObject(missing_players = this._missingPlayers() ) ) {
+
+			this._partialLoadAllColored = Ressources.loadAllColored(this._ressources, missing_players );
+			await this._partialLoadAllColored;
+			this._partialLoadAllColored = undefined;
+
+			if( this._cancelPartialDraw ) {
+				this._cancelPartialDraw = false;
+				return;
+			}
+		}
+
+		for(let type in this._partialOperations ) {
+			let elements = this._board.getElements(type);
+			for(let idx of this._partialOperations[type] )
+				this._drawElement(type, elements.get(idx), idx);
+		}
+	
+		this._waitingForPartialDraw = false;
+	}
+
+	async _fullDraw() {
+
+		if( this._waitingForFulldraw )
+			return;
+		this._waitingForFulldraw = true;
+
+		this._partialOperations = {};
+
+		if( this._waitingForPartialDraw ) {
+			this._cancelPartialDraw = true;
+			this._waitingForPartialDraw = false;
+		}
+
+
+		if( this._partialLoadAllColored !== undefined )
+			await this._partialLoadAllColored;
+
+		let missing_players;
+		while( ! $.isEmptyObject(missing_players = this._missingPlayers() ) )
+			await Ressources.loadAllColored(this._ressources, missing_players );
+
+		this._w = this._target.width();
+		this._h = this._target.height();
+		this._boardSize = this._board.boardSize();
+
+		for(let layer in this._layers) {
+			
+			this._canvas[layer].width = this._w;
+			this._canvas[layer].height = this._h;
+
+			this._layers[layer].clearRect(0, 0, this._w, this._h);
+		}
+
+		this._drawBackground();
+		this._drawGrid();
+
+		for(let type of ['Links', 'Bases', 'Pawns'] )
+			this._drawElements(type);
+
+		this._waitingForFulldraw = false;
+	}
 
 	_drawImage(type, img, owner, idx) {
 
+		let [px, py] = this._CoordToPixels(idx);
+
 		img = img.image(owner) || img;
 
-		if( ! img || ! img.complete )
-			return false;
-
-		let [px, py] = this._CoordToPixels(idx);
 		this._layers[type].drawImage(img, 0, 0, img.width, img.height, px, py, this._cw, this._cw);
+	}
 
-		return true;
+	_drawElement(type, elements, idx, clear = true) {
+
+		if(clear)
+			this._clearCase(type, idx);
+
+		if( ! elements )
+			return;
+
+		let size = this._boardSize;
+		let coords = ElementsList.getXY(idx);
+
+		if(coords[0] < 0 || coords[0] >= size[0] || coords[1] < 0 || coords[1] >= size[1])
+			return;
+
+		let to_draws = type.endsWith('Links') ? Object.values(elements ) : [ elements ];
+
+		for(let [name, owner] of to_draws) {
+			let img = this._ressources[type][name];
+			this._drawImage(type, img, owner, coords);
+		}
 	}
 
 	_clearCase(layer, idx) {
@@ -119,71 +204,10 @@ export class BoardCanvas {
 		layer.clearRect( px, py, this._cw, this._cw );
 	}
 
-	_drawPhantomElements(type, fulldraw = false) {
+	_drawElements(type, elements = this._board.getElements(type) ) {
 
-		return this._drawElements('Phantom' + type, fulldraw, new ElementsList( type ) ); //TODO
-	}
-
-	_hasToRedraw( type, element ){
-
-		if( ! type.endsWith('Links') )
-			return this._playersToRedraw.has( type + '.' + element[0] + '.' + element[1] );
-
-		for(let key in element)
-			if( this._playersToRedraw.has( type + '.' + element[key][0] + '.' + element[key][1]) )
-				return true;
-		return false;
-	}
-
-	_drawElements(type, fulldraw = false, elements = this._board.getElements(type) ) {
-
-		let prev = this._prevElements[type] = this._prevElements[type] || new ElementsList( type );
-
-
-		for(let idx of prev.keys() ) {
-
-			if( ! elements.hasEntry(idx, prev.get(idx) ) || this._hasToRedraw(type, prev.get(idx) ) ) {
-				this._clearCase(type, idx);
-				prev.delete(idx);
-			}
-		}
-
-		let size = this._boardSize;
-		for(let idx of elements.keys() ) {
-
-			if( prev.hasEntry(idx, elements.get(idx) ) )
-				continue;
-
-			let coords = ElementsList.getXY(idx);
-
-			if(coords[0] < 0 || coords[0] >= size[0] || coords[1] < 0 || coords[1] >= size[1]) {
-				this._clearCase(type, idx);
-				continue;
-			}
-
-			let succeed = true;
-
-			if( ! type.endsWith('Links') ) {
-
-				let [name, owner] = elements.get(idx);
-				let img = this._ressources[type][name];
-				if( ! this._drawImage(type, img, owner, coords) )
-					succeed = false;
-			} else {
-
-				this._clearCase(type, idx);
-
-				for(let [name, owner] of Object.values(elements.get(idx) ) ) {
-
-					let img = this._ressources[type][name];
-					if( ! this._drawImage(type, img, owner, coords) )
-						succeed = false;
-				}
-			}
-
-			if( succeed )
-				prev.setFrom(elements, idx);
-		}
+		for(let idx of elements.keys() )
+			this._drawElement(type, elements.get(idx), idx, false);
 	}
 
 	_drawBackground() {

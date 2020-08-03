@@ -43,10 +43,11 @@ export class Editor {
 		});
 
 		let setBoardSize = this._board.setBoardSize;
-		this._board.setBoardSize = function(w, h) {
-			setBoardSize.call(this, w, h);
+		this._board.setBoardSize = (w, h) => {
+			let result = setBoardSize.call(this._board, w, h);
 			$('#board_width').val(w);
 			$('#board_height').val(h)
+			return result;
 		}
 
 		$('canvas').on("contextmenu", (ev) => {
@@ -66,8 +67,10 @@ export class Editor {
 
 			let current_highlight = [coords, [null, null]];
 
-			if( coords === null && this._prev_highlight[0] !== null )
+			if( this._prev_highlight[0] !== null && ! ElementsList.areKeysEqual(coords, this._prev_highlight[0]) ) {
 				this._canvas.removeHighlight(this._prev_highlight[0]);
+				this._prev_highlight[0] = null;
+			}
 
 			if(coords !== null) {
 
@@ -93,14 +96,11 @@ export class Editor {
 					angle = current_highlight[1] = [beg_angle, end_angle];
 				}
 
-				if( 	this._prev_highlight[0] === null
-					||	! ElementsList.areKeysEqual(coords, this._prev_highlight[0])
+				if( this._prev_highlight[0] === null
 					||  angle[0] !==  this._prev_highlight[1][0]
 					||	angle[1] !==  this._prev_highlight[1][1]
 					) {
 
-					if( this._prev_highlight[0] !== null )
-						this._canvas.removeHighlight(this._prev_highlight[0]);
 					this._canvas.addHighlight(coords, ...angle);
 				}
 			}

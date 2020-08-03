@@ -1,8 +1,18 @@
 import {ElementsList} from 'calc/LastGo/ElementsList';
 
-export class Board {
+class BoardEvent extends Event {
+
+	constructor( name, data ) {
+		super('Board.' + name);
+		this.data = data;
+	}
+}
+
+export class Board extends EventTarget {
 
 	constructor() {
+
+		super();
 
 		this._boardSize = [9,9];
 		this._elements = {};
@@ -14,12 +24,14 @@ export class Board {
 		return this._boardSize;
 	}
 
-	setBoardSize(w, h) { //TODO HOOK
+	setBoardSize(w, h) {
 
 		if( w > 0x7FFF || h > 0x7FFF )
 			throw new Error(`Board size is too big ! ${w}x${h}`);
 
 		this._boardSize = [w, h];
+
+		this.dispatchEvent( new BoardEvent('SIZE_CHANGED') );
 	}
 
 	getElement(elem) {
@@ -35,12 +47,12 @@ export class Board {
 
 	getElementName(elem) {
 
-		return this.getValue(elem)[0];
+		return this.getElement(elem)[0];
 	}
 
 	getElementOwner(elem) {
 
-		return this.getValue(elem)[1];
+		return this.getElement(elem)[1];
 	}
 
 	getStrElement(elem) {
@@ -55,15 +67,17 @@ export class Board {
 		return this._elements[type] || new ElementsList(type);
 	}
 
-	removeElement(type, elem, idx, z = null) { //TODO HOOK
+	removeElement(type, elem, idx, z = null) {
 
-		if( type !== 'Links' )
-			return this._elements[type].delete(idx);
-		
-		if( ! this._elements[type].has(idx) )
-			return;
+		if( type !== 'Links' ) {
+			this._elements[type].delete(idx);
+		} else {
+			if( ! this._elements[type].has(idx) )
+				return;
+			delete this._elements[type].get(idx)[z];
+		}
 
-		delete this._elements[type].get(idx)[z];
+		this.dispatchEvent( new BoardEvent('ELEMENT_REMOVED', {type: type, elem: null, idx: idx}) );
 	}
 
 	clearElements() {
@@ -72,19 +86,23 @@ export class Board {
 		this.setBoardSize(...this.boardSize() ); // Force redraw h4ck.
 	}
 
-	addElement(type, elem, idx, z = null) { //TODO HOOK
+	addElement(type, elem, idx, z = null) {
 		
 		this._elements[type] = this.getElements(type);
 
 		elem = this.getElement(elem);
 
-		if(type !== 'Links')
-			return this._elements[type].set(idx, elem);
+		if(type !== 'Links') {
+			this._elements[type].set(idx, elem);
+		} else {
 		
-		if( ! this._elements[type].has(idx) )
-			this._elements[type].set(idx, {});
+			if( ! this._elements[type].has(idx) )
+				this._elements[type].set(idx, {});
 
-		return this._elements[type].get(idx)[z] = elem;
+			this._elements[type].get(idx)[z] = elem;
+		}
+
+		this.dispatchEvent( new BoardEvent('ELEMENT_ADDED', {type: type, elem: elem, idx: idx}) );
 	}
 	
 
@@ -93,23 +111,25 @@ export class Board {
 	}
 
 	modifyPlayer(name, color) {
-		this._players[name] = color; //TODO HOOK => Change colors
+		this._players[name] = color;
+
+		this.dispatchEvent( new BoardEvent('PLAYER_MODIFIED', {name: name, color: color}) );
 
 		// Force element recoloring.		
 		for(let type in this._elements)
-			for(let [key, element] of this._elements[type].entries() ) {
+			for(let [idx, element] of this._elements[type].entries() ) {
 
 				if( type !== 'Links') {
 
 					if( this.getElementOwner(element) == name )
-						this.addElement(type, idx);
+						this.addElement(type, element, idx);
 
 					continue;
 				}
 
 				for(let key in element)
 					if( this.getElementOwner(element[key]) == name )
-						this.addElement(type, idx, key);
+						this.addElement(type, element[key], idx, key);
 			}
 	}
 
@@ -117,28 +137,30 @@ export class Board {
 		return this.modifyPlayer(name, color);
 	}
 
-	removePlayer(name) { //TODO HOOK => Remove colors.
+	removePlayer(name) {
 
 		if(name === 'Neutral')
 			return false;
 
 		for(let type in this._elements)
-			for(let [key, element] of this._elements[type].entries() ) {
+			for(let [idx, element] of this._elements[type].entries() ) {
 
 				if( type !== 'Links') {
 
 					if( this.getElementOwner(element) == name )
-						this.removeElement(type, idx);
+						this.removeElement(type, null, idx);
 
 					continue;
 				}
 
 				for(let key in element)
 					if( this.getElementOwner(element[key]) == name )
-						this.removeElement(type, idx, key);
+						this.removeElement(type, null, idx, key);
 			}
 
 		delete this._players[name];
+
+		this.dispatchEvent(new BoardEvent('PLAYER_REMOVED', {name: name} ) );
 
 		return true;
 	}
@@ -192,12 +214,7 @@ export class Board {
 			json = JSON.parse(data);
 
 		this._elements = {}; // prevent redraws.
-
-		for(let old_player in this.players() )
-			this.removePlayer(old_player);
-
-		for(let player in json.players)
-			this.addPlayer(player, json.players[player]);
+		this._players = json.players; // prevent redraws.
 		
 		for(let type in json.elements)
 			this._elements[type] = new ElementsList(type);
