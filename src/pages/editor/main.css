@@ -24,9 +24,31 @@ body {
 	height: 100vh;
 	width: calc( 100vw - 100vh / 9 * 16 );
 	background-color: #D3D3D3;
+	padding: 1rem 0.5rem;
 	position: absolute;
 	top: 0px;
 	right: 0px;
+}
+
+#editorMenu .btn-group {
+	width: 100%;
+}
+
+#editorMenu .btn-block + .btn-block {
+    margin-top: 0rem;
+}
+
+#editorMenu strong {
+	display: inline-block;
+	margin-top: 0.5rem;
+}
+
+#editorMenu .form-group {
+    margin-bottom: 0.5rem;
+}
+
+#editorMenu .nav-link {
+	padding: 0.2rem;
 }
 
 #select_Elements img {

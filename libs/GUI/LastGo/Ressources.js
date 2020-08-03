@@ -1,12 +1,14 @@
 export class Ressources {
 
-	constructor( content, path ) {
+	constructor( content, path, color = null ) {
 
 		this._path = path;
 		this._type = path.split('.')[0];
 		this._name = path.split('.').slice(1).join('.');
+		this._color = color;
 
 		this._img = new Image();
+
 		this._img._ressource = this;
 
 		this._content = content;
@@ -22,6 +24,10 @@ export class Ressources {
 
 		this._colored = {};
 
+	}
+
+	color() {
+		return this._color;
 	}
 
 	async waitLoad() {
@@ -40,10 +46,7 @@ export class Ressources {
 		if(owner == null)
 			return this._img;
 
-		if( this._colored[owner] === undefined ) {
-			console.log(owner, this._path);
-		}
-		return this._colored[owner]._img;
+		return this._colored[owner].image();
 	}
 
 
@@ -64,15 +67,17 @@ export class Ressources {
 		await Promise.all(promises);
 	}
 
-	static async loadAllColored(index, players) {
+	static loadAllColored(index, players) {
 
-		let promises = [];
+		let toRedraw = new Set();
 
 		for(let type in index)
 			for(let name in index[type])
-				promises.push( index[type][name].loadAllColored(players) );
+				for(let player in players)
+					if( index[type][name].loadColored(player, players[player]) )
+						toRedraw.add(type + '.' + name + '.' + player);
 
-		await Promise.all(promises);
+		return toRedraw;
 	}
 
 	colorContent( new_color, targetColor = '#000080') {
@@ -83,30 +88,21 @@ export class Ressources {
 		content[1] = content[1].replace( new RegExp(targetColor,"g") , new_color);
 		content[1] = btoa(content[1]);
 
-
 		return content.join(',');
 	}
 
-	async loadAllColored( players ) {
+	loadColored(name, color) {
 
-		let promises = [];
-
-		for(let player in players) {
-
-			promises.push( new Promise( async (r) => {
-
-				let newContent = this.colorContent(players[player]);
-				let img = new Ressources(newContent, this._path + '@' + player);
-
-				img = await img.waitLoad();
-
-				this._colored[player] = img;
-
-				r( img );
-			}) );
+		if( ! this._colored[name] || this._colored[name]._color != color ) {
+			this._colored[name] = new Ressources( this.colorContent(color) , this._path + '@' + name, color);
+			this._colored[name].__flag = true;
 		}
 
-		return await Promise.all(promises);
+		if( ! this._colored[name]._img.complete || ! this._colored[name].__flag )
+			return false;
+
+		delete this._colored[name].__flag;
+		return true;
 	}
 }
 

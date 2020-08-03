@@ -1,42 +1,50 @@
-export class ElementsList extends Map {
+export class ElementsList {
 
 	constructor(type, ...args) {
-		super(...args);
+		
+		this._internal = new Map();
 		this._type = type;
 	}
 
 
+	_cloneValue(value) {
+		return this._type.endsWith('Links') ? {...value} : value;
+	}
+
 	clone() {
 
-		let data = Array.from( this.entries(), e => this._type.endsWith('Links') ? [e[0], {...e[1]}] : e );
+		let data = Array.from( this.entries(), e => [e[0], this._cloneValue(e[1])] );
 
 		return new ElementsList( this._type, data );
 	}
 
-	set(...args) {
+	set(idx, value) {
 
-		let value = args[args.length - 1];
-		let idx = ElementsList.getIDX( ...args.slice(0, -1) );
-
-		return super.set(idx, value);
+		idx = ElementsList.getIDX(idx);
+		return this._internal.set(idx, value);
 	}
 
-	get(...args) {
+	setFrom(elem_list, idx) {
 
-		let idx = ElementsList.getIDX(...args);
-		return super.get( idx );
+		return this._internal.set( idx, this._cloneValue( elem_list.get(idx) ) );
 	}
 
-	has(...args) {
+	get(idx) {
 
-		let idx = ElementsList.getIDX(...args);
-		return super.has( idx );
+		idx = ElementsList.getIDX(idx);
+		return this._internal.get( idx );
 	}
 
-	delete(...args) {
+	has(idx) {
 
-		let idx = ElementsList.getIDX(...args);
-		return super.delete( idx );
+		idx = ElementsList.getIDX(idx);
+		return this._internal.has( idx );
+	}
+
+	delete(idx) {
+
+		idx = ElementsList.getIDX(idx);
+		return this._internal.delete( idx );
 	}
 
 
@@ -59,48 +67,72 @@ export class ElementsList extends Map {
 		return this.has(idx) && this.areEqual( this.get(idx), value );
 	}
 
-	* strIDX_keys() {
-		for(let key of super.keys() )
-			yield ElementsList.getStrIDX(key);
-	}
+	* keys(format = null) {
 
-	* XY_keys() {
-		for(let key of super.keys() )
-			yield ElementsList.getXY(key);
-	}
-
-	static getIDX(x, y = null) {
-
-		if( y === null) {
-
-			if( typeof x === 'string')
-				[x, y] = Array.from(x.split('x'), e => parseInt(e) );
-			else if( Array.isArray(x) )
-				[x, y] = x;
-			else
-				return x;
+		if(format === null) {
+			yield* this._internal.keys();
+			return;
 		}
 
-		return (x << 16) + y;
+		let formatter = ElementsList[`get${format}`];
+
+		for(let key of this._internal.keys() )
+			yield formatter(key);
 	}
 
-	static getXY(idx, y = null) {
+	* values() {
+		yield* this._internal.values();
+	}
 
-		if( y !== null)
-			return [idx, y];
+	* entries(format = null) {
+
+		if(format === null) {
+			yield*  this._internal.entries();
+			return;
+		}
+
+		let formatter = ElementsList[`get${format}`];
+
+		for(let [key, value] of this._internal.entries() )
+			yield [formatter(key), value];
+	}
+
+	static areKeysEqual(a, b) {
+		return ElementsList.getIDX(a) === ElementsList.getIDX(b);
+	}
+
+	static getIDX(idx) {
+
+		if( Number.isInteger(idx) )
+			return idx;
+
+		idx = ElementsList.getXY(idx);
+
+		return (idx[0] << 16) + idx[1];
+	}
+
+	static getXY(idx) {
 
 		if( Array.isArray(idx) )
 			return idx;
 
-		if(typeof idx === 'string')
-			idx = ElementsList.getIDX(idx);
+		if( Number.isInteger(idx) )
+			return [ (idx >> 16) & 0xFF, idx & 0xFF ];
 
-		return [ (idx >> 16) & 0xFF, idx & 0xFF ];
+		if(typeof idx === 'string')
+			return Array.from( idx.split('x'), e => parseInt(e) );
+
+		throw new Error('Unknown format: ' + idx); 
 	}
 
-	static getStrIDX(x, y) {
+	static getstrIDX(idx) {
+		return ElementsList.getStrIDX(idx);
+	}
+	static getStrIDX(idx) {
 
-		[x, y] = ElementsList.getXY(x, y);
-		return x + 'x' + y;
+		if( typeof idx === 'string')
+			return idx;
+
+		return ElementsList.getXY(idx).join('x');
 	}
 }

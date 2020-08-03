@@ -14,7 +14,7 @@ export class Board {
 		return this._boardSize;
 	}
 
-	setBoardSize(w, h) {
+	setBoardSize(w, h) { //TODO HOOK
 
 		if( w > 0x7FFF || h > 0x7FFF )
 			throw new Error(`Board size is too big ! ${w}x${h}`);
@@ -22,69 +22,69 @@ export class Board {
 		this._boardSize = [w, h];
 	}
 
-	getValue( elem, owner = null) {
-
-		if( owner !== null)
-			return [elem, owner];
+	getElement(elem) {
 
 		if( Array.isArray(elem) )
 			return elem;
 
-		return elem.split('@');
+		if( typeof elem == 'string')
+			return elem.split('@');
+
+		throw new Error('Unknown format: ' + elem); 
 	}
 
-	getStrValue( elem, owner = null) {
-		
-		if( owner !== null)
-			return elem + '@' + owner;
+	getElementName(elem) {
 
-		if( Array.isArray(elem) )
-			return elem.join('@');
+		return this.getValue(elem)[0];
+	}
 
-		return elem;
+	getElementOwner(elem) {
+
+		return this.getValue(elem)[1];
+	}
+
+	getStrElement(elem) {
+
+		if( typeof elem == 'string' )
+			return elem;
+
+		return elem.join('@');
 	}
 
 	getElements(type) {
-		return this._elements[type] = this._elements[type] || new ElementsList(type);
+		return this._elements[type] || new ElementsList(type);
+	}
+
+	removeElement(type, elem, idx, z = null) { //TODO HOOK
+
+		if( type !== 'Links' )
+			return this._elements[type].delete(idx);
+		
+		if( ! this._elements[type].has(idx) )
+			return;
+
+		delete this._elements[type].get(idx)[z];
 	}
 
 	clearElements() {
 		this._elements = {};
+
+		this.setBoardSize(...this.boardSize() ); // Force redraw h4ck.
 	}
 
-	symmetricalRemoveElement(owner, type, name, x, y, z = null) {
-		return this.removeElement(type, x, y, z);
-	}
-
-	removeElement(type, x, y, z = null) {
-
-		if( typeof y === 'string' )
-			[y, z] = [undefined, y];
-
-		if( type !== 'Links' )
-			return this._elements[type].delete(x, y);
-		
-		if( ! this._elements[type].has(x, y) )
-			return;
-
-		delete this._elements[type].get(x, y)[z];
-	}
-
-	addElement(owner, type, name, x, y, z = null) {
-
-		if( typeof y === 'string' )
-			[y, z] = [undefined, y];
+	addElement(type, elem, idx, z = null) { //TODO HOOK
 		
 		this._elements[type] = this.getElements(type);
-		let value = [name, owner];
+
+		elem = this.getElement(elem);
 
 		if(type !== 'Links')
-			return this._elements[type].set(x, y, value);
+			return this._elements[type].set(idx, elem);
 		
-		if( ! this._elements[type].has(x, y) )
-			this._elements[type].set(x, y, {});
+		if( ! this._elements[type].has(idx) )
+			this._elements[type].set(idx, {});
 
-		return this._elements[type].get(x, y)[z] = value;
+		return this._elements[type].get(idx)[z] = elem;
 	}
 	
 
@@ -93,39 +93,54 @@ export class Board {
 	}
 
 	modifyPlayer(name, color) {
-		this.addPlayer(name, color);
-	}
+		this._players[name] = color; //TODO HOOK => Change colors
 
-	addPlayer(name, color) {
-		this._players[name] = color;
-	}
-
-	delPlayer(name) {
-
-		console.log('del player');
-		return;
-		//TODO !!!
+		// Force element recoloring.		
 		for(let type in this._elements)
-			for(let key in this._elements[type]) {
+			for(let [key, element] of this._elements[type].entries() ) {
 
-				let element = this._elements[type][key];
-				let [x, y] = Array.from( key.split('x') , e => parseInt(e) );
+				if( type !== 'Links') {
 
-				if( typeof element === 'string') {
-
-
-					if( element.endsWith('@' + name) )
-						this.removeElement(type, x, y);
+					if( this.getElementOwner(element) == name )
+						this.addElement(type, idx);
 
 					continue;
 				}
 
-				for(let z in element)
-					if( element[z].endsWith('@' + name) )
-						this.removeElement(type, x, y, z);
+				for(let key in element)
+					if( this.getElementOwner(element[key]) == name )
+						this.addElement(type, idx, key);
+			}
+	}
+
+	addPlayer(name, color) {
+		return this.modifyPlayer(name, color);
+	}
+
+	removePlayer(name) { //TODO HOOK => Remove colors.
+
+		if(name === 'Neutral')
+			return false;
+
+		for(let type in this._elements)
+			for(let [key, element] of this._elements[type].entries() ) {
+
+				if( type !== 'Links') {
+
+					if( this.getElementOwner(element) == name )
+						this.removeElement(type, idx);
+
+					continue;
+				}
+
+				for(let key in element)
+					if( this.getElementOwner(element[key]) == name )
+						this.removeElement(type, idx, key);
 			}
 
 		delete this._players[name];
+
+		return true;
 	}
 
 	export(sort = false) {
@@ -136,19 +151,19 @@ export class Board {
 
 			elements[type] = {};
 
-			for(let strIDX of this._elements[type].strIDX_keys() ) {
+			for(let strIDX of this._elements[type].keys('strIDX') ) {
 
 				elements[type][ strIDX ] = this._elements[type].get(strIDX);
 
 				if( type !== 'Links') {
 
-					elements[type][ strIDX ] = this.getStrValue( elements[type][ strIDX ] );
+					elements[type][ strIDX ] = this.getStrElement( elements[type][ strIDX ] );
 					continue;
 				}
 				if(sort) {
 
 					for(let key in elements[type][ strIDX ] )
-						elements[type][ strIDX ][key] = this.getStrValue( elements[type][ strIDX ][key] );
+						elements[type][ strIDX ][key] = this.getStrElement( elements[type][ strIDX ][key] );
 					elements[type][strIDX] = Object.fromEntries(Object.entries(elements[type][strIDX]).sort());
 				}
 			}
@@ -176,12 +191,14 @@ export class Board {
 		if( typeof json == 'string')
 			json = JSON.parse(data);
 
-		this.setBoardSize( ... json.board_size );
+		this._elements = {}; // prevent redraws.
+
+		for(let old_player in this.players() )
+			this.removePlayer(old_player);
 
 		for(let player in json.players)
 			this.addPlayer(player, json.players[player]);
-
-		this._elements = {};
+		
 		for(let type in json.elements)
 			this._elements[type] = new ElementsList(type);
 
@@ -191,15 +208,17 @@ export class Board {
 				let value = json.elements[type][key];
 
 				if(type !== 'Links') {
-					this._elements[type].set(key, this.getValue(value) );
+					this._elements[type].set(key, this.getElement(value) );
 					continue;
 				}
 
 				let obj = {};
 				for(let key in value)
-					obj[key] = this.getValue( value[key] );
+					obj[key] = this.getElement( value[key] );
 				this._elements[type].set(key, obj);
 			}
+
+		this.setBoardSize( ... json.board_size ); // Force redraw.
 	}
 }
 

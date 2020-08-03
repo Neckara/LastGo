@@ -23,7 +23,7 @@ $( async () => {
 	let board = new Board();
 	let boardCanvas = new BoardCanvas( board, canvas, Ressources.index );
 
-	//boardCanvas.setDrawLevel('Grid');
+	//boardCanvas.setDrawLevel('Grid'); // TODO HIDE CANVAS [BETTER]
 
 	let editor = new Editor(board, boardCanvas, Ressources.index);
 });

@@ -3,20 +3,20 @@ import {ElementsList} from 'calc/LastGo/ElementsList';
 
 export let methods = {};
 
-methods._CoordToPixels = function (x, y ) {
+methods._CoordToPixels = function (idx) {
 
-	[x, y] = ElementsList.getXY(x, y);
+	let [x, y] = ElementsList.getXY(idx);
 
-	let px = this._loffset + this._lw + x * (this._cw + this._lw);
-	let py = this._toffset + this._lw + y * (this._cw + this._lw);
+	let px = this._loffset + x * this._cw;
+	let py = this._toffset + y * this._cw;
 
 	return [px, py];
 }
 
 methods.PixelsToCoord = function (px, py) {
 
-	let x = Math.floor( (px - this._loffset - this._lw) / (this._cw + this._lw) );
-	let y = Math.floor( (py - this._toffset - this._lw) / (this._cw + this._lw) );
+	let x = Math.floor( (px - this._loffset) / this._cw );
+	let y = Math.floor( (py - this._toffset) / this._cw );
 
 	let bs = this._board.boardSize();
 
@@ -29,8 +29,7 @@ methods.PixelsToCoord = function (px, py) {
 // https://www.mathsisfun.com/polar-cartesian-coordinates.html
 methods.PixelsToAngle = function (px, py) {
 
-	let [x, y] = this.PixelsToCoord(px, py);
-	let [tpx, tpy] = this._CoordToPixels(x, y);
+	let [tpx, tpy] = this._CoordToPixels( this.PixelsToCoord(px, py) );
 
 	px -= tpx;
 	py -= tpy;
@@ -48,7 +47,7 @@ methods.PixelsToAngle = function (px, py) {
 	return 360 - angle;
 }
 
-methods._angleToCoord = function (angle, cx, cy, cw) {
+methods._angleToPixels = function (angle, cx, cy, cw) {
 
 	let isCos = ! (angle > 45 && angle < 135 || angle > 225 && angle < 315);
 

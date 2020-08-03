@@ -6,23 +6,26 @@ export let methods = {};
 
 methods['clearHighlights'] = function() {
 	this._highlights = new ElementsList('Highlights');
+	//TODO REDRAW
 }
 
 let default_color = 'rgba(225,225,225,0.5)';
 
-methods['addHighlight'] = function(x, y, color, beg_angle, end_angle ) {
+methods['addHighlight'] = function(idx, color = null, beg_angle = null, end_angle = null) {
 
-	if( Array.isArray(x) || typeof x === 'string' || typeof x === 'integer' && typeof y !== 'integer' )
-		[ x, y, color, beg_angle, end_angle ] = [x, null, y, color, beg_angle, end_angle ];
+	if( beg_angle !== null && end_angle === null)
+		[color, beg_angle, end_angle] = [null, color, beg_angle];
 
 	if( ! color )
 		color = default_color;
 
-	this._highlights.set(x, y, [color, beg_angle, end_angle] );
+	this._highlights.set(idx, [color, beg_angle, end_angle] );
+	//TODO DRAW
 }
 
-methods['removeHighlight'] = function(x, y) {
-	this._highlights.delete(x, y);
+methods['removeHighlight'] = function(idx) {
+	this._highlights.delete(idx);
+	//TODO DRAW
 }
 
 methods['_drawHighlights'] = function(fulldraw = false) {
@@ -40,7 +43,7 @@ methods['_drawHighlights'] = function(fulldraw = false) {
 	for( let idx of this._highlights.keys() )
 		if( ! prev_highlights.hasEntry( idx, this._highlights.get(idx) ) ) {
 
-			prev_highlights.set(idx, this._highlights.get(idx) );
+			prev_highlights.setFrom(this._highlights, idx);
 
 			let [px, py] = this._CoordToPixels(idx);
 			let [color, beg_angle, end_angle] = this._highlights.get(idx);
@@ -57,18 +60,18 @@ methods['_drawHighlights'] = function(fulldraw = false) {
 			layer.beginPath();
 			layer.moveTo(cx, cy);
 
-			layer.lineTo( ... this._angleToCoord(beg_angle, cx, cy, this._cw) );
+			layer.lineTo( ... this._angleToPixels(beg_angle, cx, cy, this._cw) );
 
 			if( beg_angle < 45 && end_angle > 45)
-				layer.lineTo( ... this._angleToCoord(45, cx, cy, this._cw) );
+				layer.lineTo( ... this._angleToPixels(45, cx, cy, this._cw) );
 			if( beg_angle < 135 && end_angle > 135)
-				layer.lineTo( ... this._angleToCoord(135, cx, cy, this._cw) );
+				layer.lineTo( ... this._angleToPixels(135, cx, cy, this._cw) );
 			if( beg_angle < 225 && end_angle > 225)
-				layer.lineTo( ... this._angleToCoord(225, cx, cy, this._cw) );
+				layer.lineTo( ... this._angleToPixels(225, cx, cy, this._cw) );
 			if( beg_angle < 315 && end_angle > 315)
-				layer.lineTo( ... this._angleToCoord(315, cx, cy, this._cw) );
+				layer.lineTo( ... this._angleToPixels(315, cx, cy, this._cw) );
 
-			layer.lineTo( ... this._angleToCoord(end_angle, cx, cy, this._cw) );
+			layer.lineTo( ... this._angleToPixels(end_angle, cx, cy, this._cw) );
 
 			layer.fill();
 		}

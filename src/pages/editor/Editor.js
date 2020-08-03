@@ -1,5 +1,6 @@
 const $ = require('jquery');
 import {Board} from 'calc/LastGo/Board.js';
+import {ElementsList} from 'calc/LastGo/ElementsList';
 
 window.$ = $;
 
@@ -40,7 +41,13 @@ export class Editor {
 
 			this._board.setBoardSize(w, h);
 		});
-		$('#board_width').trigger('input');
+
+		let setBoardSize = this._board.setBoardSize;
+		this._board.setBoardSize = function(w, h) {
+			setBoardSize.call(this, w, h);
+			$('#board_width').val(w);
+			$('#board_height').val(h)
+		}
 
 		$('canvas').on("contextmenu", (ev) => {
 
@@ -52,13 +59,19 @@ export class Editor {
 		$('canvas').mousemove( (ev) => {
 			let px = ev.pageX;
 			let py = ev.pageY;
+
+			this._prev_highlight = this._prev_highlight || [null, [null, null] ];
+
 			let coords = this._canvas.PixelsToCoord(px, py);
 
-			this._canvas.clearHighlights();
+			let current_highlight = [coords, [null, null]];
+
+			if( coords === null && this._prev_highlight[0] !== null )
+				this._canvas.removeHighlight(this._prev_highlight[0]);
 
 			if(coords !== null) {
 
-				let angle = [];
+				let angle = [null, null];
 				if( this._selectedElement && this._selectedElement[0] == 'Links') {
 					angle = this._canvas.PixelsToAngle(px, py);
 
@@ -77,20 +90,68 @@ export class Editor {
 					this._lastAngle = angles[beg_angle];
 					this._showLinks();
 
-					angle = [beg_angle, end_angle];
+					angle = current_highlight[1] = [beg_angle, end_angle];
 				}
-				//TODO ADD PHANTOMS !!!
 
-				this._canvas.addHighlight(...coords, null, ...angle);
+				if( 	this._prev_highlight[0] === null
+					||	! ElementsList.areKeysEqual(coords, this._prev_highlight[0])
+					||  angle[0] !==  this._prev_highlight[1][0]
+					||	angle[1] !==  this._prev_highlight[1][1]
+					) {
+
+					if( this._prev_highlight[0] !== null )
+						this._canvas.removeHighlight(this._prev_highlight[0]);
+					this._canvas.addHighlight(coords, ...angle);
+				}
 			}
+
+			this._prev_highlight = current_highlight;
 		});
 
+		this._override_layers = {};
+		this._layers = ['Background', 'Grid', 'Links', 'Bases', 'Pawns'];
+		this._current_level = this._layers.length - 1;
 
+		$('#show_Grid').prop( "checked", true );
+		$('#show_Grid').change( (ev) => {
+			this._canvas.showLayer( 'Grid', ev.target.checked && this._layers.indexOf('Grid') <= this._current_level );
+
+			this._override_layers['Grid'] = ! ev.target.checked;
+		});
+
+		let prev_time = Date.now();
+
+		$('canvas, #canvas').on('wheel', (ev) => {
+
+			ev.preventDefault();
+
+			let cur_time = Date.now();
+			if( cur_time - prev_time < 250)
+				return;
+			prev_time = cur_time;
+
+			if( ev.originalEvent.deltaY > 0 )
+				--this._current_level;
+			else
+				++this._current_level;
+
+			this._changeLayerLevel(this._current_level);
+
+			let layer = this._layers[this._current_level];
+			if( layer == 'Grid')
+				layer = 'Background';
+
+			let tab = $(`#select_Elements_menu a[href="#select_${layer}"]`);
+			if( ! tab.hasClass('active') )
+				tab.click();
+		});
 
 		$('canvas').mouseup( (ev) => {
 
 			if(this._selectedElement === null)
 				return;
+
+			let [type, name] = this._selectedElement;
 
 			let px = ev.pageX;
 			let py = ev.pageY;
@@ -100,16 +161,16 @@ export class Editor {
 				return;
 
 			let z;
-			if( this._selectedElement[0] == 'Links')
+			if( type == 'Links')
 				z = this._lastAngle;
 
 			if( ev.which != 3 && ev.which != 1)
 				return;
 
 			if( ev.which == 1)
-				this._board.addElement(this.selectedPlayer(), ... this._selectedElement, ...coords, z);
+				this._board.addElement(type, [name, this.selectedPlayer()], coords, z);
 			if( ev.which == 3)
-				this._board.removeElement(this._selectedElement[0], ...coords, z);
+				this._board.removeElement(type, null, coords, z);
 
 			this._saveCurrent();
 		});
@@ -166,7 +227,7 @@ export class Editor {
 			if(! name || name == 'Neutral')
 				return;
 
-			this._board.delPlayer(name);
+			this._board.removePlayer(name);
 			this._updatePlayers();
 
 			this._saveCurrent();
@@ -177,12 +238,21 @@ export class Editor {
 
 			let href = $(ev.target).attr('href');
 
-			if( href === '#select_Backgrounds')
+			let type = href.slice('#select_'.length);
+			let layer = this._layers.indexOf(type);
+
+			if( layer < this._currentLayer )
+				this._changeLayerLevel( layer );
+
+			if( type === 'Background') {
+
+				this._selectedElement = null;
 				return;
+			}
 
 			$( href ).children().first().trigger('click');
 
-			if( href === '#select_Links')
+			if( type === 'Links')
 				this._showLinks();
 		});
 
@@ -353,6 +423,19 @@ export class Editor {
 		this._updatePlayers();
 
 		return true;
+	}
+
+	_changeLayerLevel(layer_level) {
+
+		this._current_level = layer_level;
+		
+		if(this._current_level < 0)
+			this._current_level = 0;
+		if(this._current_level >= this._layers.length)
+			this._current_level = this._layers.length - 1;
+
+		for(let i = 0; i < this._layers.length; ++i)
+			this._canvas.showLayer(this._layers[i], i <= this._current_level && ! this._override_layers[this._layers[i]] );
 	}
 
 	selectedPlayer() {
