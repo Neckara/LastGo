@@ -25,6 +25,9 @@ methods['removePhantomElement'] = function(type, elem, idx) {
 
 	let ptype = `Phantom${type}`;
 
+	if( ! this._phantomElements[ptype] )
+		return;
+
 	this._phantomElements[ptype].delete(idx);
 	this._partialDrawElement({type: ptype, idx: idx});
 }

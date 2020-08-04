@@ -1,20 +1,9 @@
 const $ = require('jquery');
 import {Board} from 'calc/LastGo/Board.js';
 import {ElementsList} from 'calc/LastGo/ElementsList';
+import {download, upload} from 'GUI/Utils/Files.js';
 
 window.$ = $;
-
-let angles = {
-	'-22.5': 'r',
-	'337.5': 'r',
-	'22.5': 'rt',
-	'67.5': 't',
-	'112.5': 'lt',
-	'157.5': 'l',
-	'202.5': 'lb',
-	'247.5': 'b',
-	'292.5': 'rb'
-};
 
 export class Editor {
 
@@ -25,10 +14,12 @@ export class Editor {
 		this._canvas = canvas;
 		this._ressources = ressources;
 
-		this._selectedElement = null;
-		this._lastAngle = 'r';
+		/****** SAVE CURRENT ******/
+		this._board.addEventListener('Board.SIZE_CHANGED Board.ELEMENT_ADDED Board.ELEMENT_REMOVED Board.PLAYER_MODIFIED Board.PLAYER_REMOVED', () => {
+			this._saveCurrent();
+		});
 
-		// Grid size
+		/****** BOARD SIZE ******/
 		$('#board_width, #board_height').on('input', () => {
 
 			let w = parseInt( $('#board_width').val() );
@@ -42,14 +33,13 @@ export class Editor {
 			this._board.setBoardSize(w, h);
 		});
 
-		let setBoardSize = this._board.setBoardSize;
-		this._board.setBoardSize = (w, h) => {
-			let result = setBoardSize.call(this._board, w, h);
+		this._board.addEventListener('Board.SIZE_CHANGED', () => {
+			let [w, h] = this._board.boardSize();
 			$('#board_width').val(w);
 			$('#board_height').val(h)
-			return result;
-		}
+		});
 
+		/****** MOUSE ACTIONS ******/
 		$('canvas').on("contextmenu", (ev) => {
 
 			let coords = this._canvas.PixelsToCoord(ev.pageX, ev.pageY);
@@ -58,77 +48,17 @@ export class Editor {
 		});
 
 		$('canvas').mousemove( (ev) => {
-			let px = ev.pageX;
-			let py = ev.pageY;
 
-			this._prev_highlight = this._prev_highlight || [null, [null, null] ];
+			let new_pos = [ev.pageX, ev.pageY];
 
-			let coords = this._canvas.PixelsToCoord(px, py);
+			this._updateAngle(new_pos);
+			this._updateHighlights(new_pos);
+			this._updatePhantoms(new_pos);
 
-			let current_highlight = [coords, [null, null]];
-
-			if( this._prev_highlight[0] !== null && ! ElementsList.areKeysEqual(coords, this._prev_highlight[0]) ) {
-				this._canvas.removeHighlight(this._prev_highlight[0]);
-				this._prev_highlight[0] = null;
-			}
-
-			let nextPhantom = [null, [null, null], null];
-			if( coords !== null && this._selectedElement ) {
-				let [type, name] = this._selectedElement;
-				let owner = this.selectedPlayer();
-				nextPhantom = [type, [name, owner], coords];
-			}
-
-			if( this._prevPhantom ) {
-				if( ! this._selectedElement || coords === null || ! ElementsList.areKeysEqual(coords, this._prevPhantom[2]) || nextPhantom[0] !== this._prevPhantom[0] ) {
-					this._canvas.removePhantomElement(...this._prevPhantom );
-					this._prevPhantom = null;
-				} else if( nextPhantom[1][0] != this._prevPhantom[1][0] || nextPhantom[1][1] != this._prevPhantom[1][1] ) {
-						this._prevPhantom = null;
-				}
-			}
-
-			if( coords !== null && ! this._prevPhantom && this._selectedElement ) {
-				this._canvas.addPhantomElement(...nextPhantom);
-				this._prevPhantom = nextPhantom;
-			}
-
-			if(coords !== null) {
-
-				let angle = [null, null];
-				if( this._selectedElement && this._selectedElement[0] == 'Links') {
-					angle = this._canvas.PixelsToAngle(px, py);
-
-					let prec = 360/8;
-					let offset = prec/2;
-
-					angle = (angle - offset) % 360;
-
-					let beg_angle = Math.floor( angle / prec) * prec;
-					let end_angle = Math.ceil( angle / prec) * prec;
-
-
-					beg_angle = (beg_angle + offset) % 360;
-					end_angle = (end_angle + offset) % 360;
-
-					this._lastAngle = angles[beg_angle];
-					this._showLinks();
-
-					angle = current_highlight[1] = [beg_angle, end_angle];
-				}
-
-				if( this._prev_highlight[0] === null
-					||  angle[0] !==  this._prev_highlight[1][0]
-					||	angle[1] !==  this._prev_highlight[1][1]
-					) {
-
-					this._canvas.addHighlight(coords, ...angle);
-				}
-			}
-
-			this._prev_highlight = current_highlight;
 		});
 
+
+		/****** LAYERS ******/
 		this._override_layers = {};
 		this._layers = ['Background', 'Grid', 'Links', 'Bases', 'Pawns'];
 		this._current_level = this._layers.length - 1;
@@ -141,7 +71,6 @@ export class Editor {
 		});
 
 		let prev_time = Date.now();
-
 		$('canvas, #canvas').on('wheel', (ev) => {
 
 			ev.preventDefault();
@@ -157,104 +86,11 @@ export class Editor {
 				++this._current_level;
 
 			this._changeLayerLevel(this._current_level);
-
 			let layer = this._layers[this._current_level];
-			if( layer == 'Grid')
-				layer = 'Background';
 
-			let tab = $(`#select_Elements_menu a[href="#select_${layer}"]`);
-			if( ! tab.hasClass('active') )
-				tab.click();
+			this.selectType( layer != 'Grid' ? layer : 'Background' );
 		});
 
-		$('canvas').mouseup( (ev) => {
-
-			if(this._selectedElement === null)
-				return;
-
-			let [type, name] = this._selectedElement;
-
-			let px = ev.pageX;
-			let py = ev.pageY;
-			let coords = this._canvas.PixelsToCoord(px, py);
-
-			if(coords == null)
-				return;
-
-			let z;
-			if( type == 'Links')
-				z = this._lastAngle;
-
-			if( ev.which != 3 && ev.which != 1)
-				return;
-
-			if( ev.which == 1)
-				this._board.addElement(type, [name, this.selectedPlayer()], coords, z);
-			if( ev.which == 3)
-				this._board.removeElement(type, null, coords, z);
-
-			this._saveCurrent();
-		});
-
-		let pthis = this;
-
-		this._last_color_change = null;
-
-		$('#player-color').on('change', () => {
-
-			let color = $('#player-color').val();
-
-			let name = this._last_color_change;
-
-			let player = $('#players .player[title="'+ name +'"]');
-
-			this._board.modifyPlayer(name, color);
-			this._updatePlayers();
-
-			this._saveCurrent();
-		});
-
-
-		$('#addplayer-btn').click( ev => {
-
-			ev.preventDefault();
-
-			let player = prompt('Enter a name for your player');
-
-			if( ! player )
-				return;
-
-			if( this._board.players()[player] !== undefined ) {
-				alert('User already exists !');
-				return;
-			}
-
-			let color = $('#player-color').val();
-			this._board.addPlayer(player, color)
-			this._updatePlayers();
-
-			this._saveCurrent();
-
-			let element = $('#players .player[title="'+ player +'"]');
-			element.trigger('dblclick');
-		});
-
-		$('#delplayer-btn').click( ev => {
-
-			ev.preventDefault();
-
-			let name = $('#players .player.selected').attr('title');
-
-			if(! name || name == 'Neutral')
-				return;
-
-			this._board.removePlayer(name);
-			this._updatePlayers();
-
-			this._saveCurrent();
-		});
-
-		// Select element
 		$('#select_Elements_menu > li > a').on('shown.bs.tab', (ev) => {
 
 			let href = $(ev.target).attr('href');
@@ -264,32 +100,188 @@ export class Editor {
 
 			if( layer > this._current_level )
 				this._changeLayerLevel( layer );
+		});
 
-			if( type === 'Background') {
+		/****** PLAYERS ******/
+		this._board.addEventListener('Board.IMPORTED', () => {
 
-				this._selectedElement = null;
+			let players =  this._board.players();
+			let prevSelected = this.selectedPlayer();
+
+			let target = $('#players');
+			target.empty();
+
+			for(let playerName in players )
+				this.createPlayer(playerName, players[playerName] );
+
+			this.selectPlayer(prevSelected, this.firstPlayer() );
+		});
+
+
+		this._board.addEventListener('Board.PLAYER_MODIFIED', (ev) => {
+
+			let {name, color} = ev.data;
+			
+			let icon = this.getPlayerIcon(name);
+			if( ! icon.length )
+				icon = this.createPlayer(name, color);
+			else
+				icon.css('background-color', color);
+
+			if( icon.hasClass('selected') )
+				this._recolorElements(color);
+		});
+
+		this._board.addEventListener('Board.PLAYER_REMOVED', (ev) => {
+
+			let {name} = ev.data;
+			let icon = this.getPlayerIcon(name);
+			icon.remove();
+			if( icon.hasClass('selected') )
+				this.selectPlayer( $('.players .player').first() );
+		});
+
+		$('#addplayer-btn').click( ev => {
+
+			ev.preventDefault();
+
+			let playerName = prompt('Enter a name for your player');
+
+			if( ! playerName )
+				return;
+
+			if( this._board.players()[playerName] !== undefined ) {
+				alert('User already exists !');
 				return;
 			}
 
-			$( href ).children().first().trigger('click');
+			let color = $('#player-color').val();
+			this._board.addPlayer(playerName, color)
 
-			if( type === 'Links')
-				this._showLinks();
+			this._askNewColor(playerName);
 		});
 
-		$('#select_Elements').children().each( function() {
+		$('#delplayer-btn').click( ev => {
 
-			let elem = $(this);
+			ev.preventDefault();
 
-			let type = elem.attr('id').slice('select_'.length);
-			let res = pthis._ressources[type] || {};
+			let playerName = this.selectedPlayer();
 
-			elem.empty();
+			if( playerName && playerName != 'Neutral') {
+				this._board.removePlayer(playerName);
+				this.selectPlayer( this.firstPlayer() );
+			}
+		});
+
+		$('#player-color').on('change', () => {
+
+			let color = $('#player-color').val();
+			let playerName = this.selectedPlayer();
+
+			this._board.modifyPlayer(playerName, color);
+		});
+
+		/****** ACTIONS ******/
+		$('#clear-btn').click( (ev) => {
+			ev.preventDefault();
+			this._board.clearElements();
+		});
+
+		$('#delete-btn').click( (ev) => {
+
+			ev.preventDefault();
+
+			let map = this.currentMapName();
+
+			this._modifySavedMaps( (maps) => delete maps[map] );
+			$("#selectMap option[value='"+ map +"']").remove();
+
+			this.changeMap('current');
+		});
+
+		$('#save-btn').click( (ev) => {
+
+			ev.preventDefault();
+			let map = this.currentMapName();
+
+			let savedAs = map == 'current' || map.startsWith('built-in:') || map.startsWith('import:');
+
+			if( savedAs ) {
+				
+				if( ! (map = prompt("Please enter a name for your map", "")) )
+					return;
+
+				map = 'saved:' + map;
+			}
+
+			let m = Board.maps[map] = JSON.parse(this._board.export());
+			this._modifySavedMaps( (maps) => maps[map] = m );
+
+			if(savedAs) {
+
+				if( ! $("#selectMap option[value='"+ map +"']").length )
+					$('#selectMap').append( new Option(map, map) );
+
+				this.changeMap(map);
+			}
+		});
+
+		$('#export-btn').click( (ev) => {
+
+			ev.preventDefault();
+
+			let data = this._board.export();
+			download(data, 'map.json', 'json');
+		});
+
+		$('#import-btn').click( async (ev) => {
+
+			ev.preventDefault();
+
+			let [file, data] = await upload();
+
+			let mapName = 'import:' + file;
+			let m = Board.maps[mapName] = JSON.parse(data);
+			this._modifySavedMaps( maps => maps[mapName] = m );
+
+			if( ! $("#selectMap option[value='"+ map +"']") )
+				$('#selectMap').append( new Option(mapName, mapName) );
+
+			this.changeMap(map);
+		});
+
+
+		/****** MAPS SELECTION ******/
+		{ // Load Maps
+			$('#selectMap').append( new Option('current', 'current') );
+
+			let maps = JSON.parse(localStorage.getItem('maps') ) || {};
+			for(let map in maps)
+				Board.maps[map] = maps[map];
+
+			for(let map in Board.maps)
+				$('#selectMap').append( new Option(map, map) );
+		}
+
+		$('#selectMap').on('change', () => {
+			this.changeMap();
+		});
+
+		/****** SELECT ELEMENT ******/
+
+		// Show lists
+		for(let typeTab of $('#select_Elements').children() ) {
+
+			typeTab = $(typeTab);
+
+			let type = typeTab.attr('id').slice('select_'.length);
+			let res = this._ressources[type] || {};
+
+			typeTab.empty();
 
 			for(let name in res) {
 
 				let img = res[name].image().cloneNode();
-				elem.append( img );
 
 				img = $(img);
 				img.attr('data-type', type);
@@ -301,127 +293,144 @@ export class Editor {
 					img.addClass('Links_' + name.split('_').slice(-1)[0]);
 
 				img.click( () => {
-
-					if( pthis._selectedElement !== null) {
-						let id = '#Select_' + pthis._selectedElement.join('.').replace(/\./g, '-');
-						$( id ).removeClass('selected');
-					}
-					pthis._selectedElement = [img.attr('data-type'), img.attr('data-name')];
-					img.addClass('selected');
+					this.selectElement(name);
 				});
+
+				typeTab.append( img );
 			}
 
-		});
+			typeTab.children().first().addClass('selected');
+		}
 
-		$('#clear-btn').click( (ev) => {
+		// Add element
+		$('canvas').mouseup( (ev) => {
 
-			ev.preventDefault();
-
-			this._board.clearElements();
-			this._saveCurrent();
-		});
-
-		$('#delete-btn').click( (ev) => {
-
-			ev.preventDefault();
-
-			let map = $('#selectMap').val();
-
-			let maps = JSON.parse(localStorage.getItem('maps') ) || {};
-			delete maps[map];
-			localStorage.setItem('maps', JSON.stringify(maps, null, 0));
-
-			$("#selectMap option[value='"+ map +"']").remove();
-
-			$('#selectMap').val('current');
-			$('#selectMap').trigger('change');
-		});
-
-		$('#save-btn').click( (ev) => {
-
-			ev.preventDefault();
-			let map = $('#selectMap').val();
-
-			if( map == 'current' || map.startsWith('built-in:') || map.startsWith('import:') ) {
-				
-				map = prompt("Please enter a name for your map", "");
-				if( ! map )
-					return;
-
-				map = 'saved:' + map;
-
-				$("#selectMap option[value='"+ map +"']").remove();
-				$('#selectMap').append( new Option(map, map, true, true) );
-				$('#selectMap').val(map);
-
-				$('#delete-btn').prop('disabled', map == 'current' || map.startsWith('built-in:') );
-			}
-
-			let maps = JSON.parse(localStorage.getItem('maps') ) || {};
-			maps[map] = Board.maps[map] = JSON.parse(this._board.export());
-			localStorage.setItem('maps', JSON.stringify(maps, null, 0));
-		});
-
-		$('#export-btn').click( (ev) => {
-
-			ev.preventDefault();
-			let data = this._board.export();
-
-			download(data, 'map.json', 'json');
-		});
-
-		$('#import-btn').click( async (ev) => {
-
-			ev.preventDefault();
-
-			let [file, data] = await upload();
-
-			file = 'import:' + file;
-			Board.maps[file] = JSON.parse(data);
-
-			$("#selectMap option[value='"+ map +"']").remove();
-			let current_option = new Option(file, file, true, true);
-			$('#selectMap').append( current_option );
-			$('#selectMap').trigger('change');
-
-			let maps = JSON.parse(localStorage.getItem('maps') ) || {};
-			maps[file] = Board.maps[file];
-			localStorage.setItem('maps', JSON.stringify(maps, null, 0));
-		});
-
-		this._showLinks();
-
-		let current_option = new Option('current', 'current', true, true);
-		$('#selectMap').append( current_option );
-
-
-		let maps = JSON.parse(localStorage.getItem('maps') ) || {};
-		for(let map in maps)
-			Board.maps[map] = maps[map];
-
-		for(let map in Board.maps)
-			$('#selectMap').append( new Option(map, map) );
-
-		$('#selectMap').on('change', () => {
-
-			let selected = $('#selectMap').val();
-
-			$('#delete-btn').prop('disabled', selected == 'current' || selected.startsWith('built-in:') );
-
-			if( selected == 'current') {
-				
-				if( ! this._loadCurrent() ) {
-					$('#selectMap').val('built-in:default');
-					$('#selectMap').trigger('change');
-				}
+			let name = this.selectedName();
+			if( ! name )
 				return;
-			}
 
-			this._board.import( Board.maps[selected] );
-			this._updatePlayers();
+			let type = this.selectedType();
+			let coords = this._canvas.PixelsToCoord(ev.pageX, ev.pageY);
+
+			if(coords == null)
+				return;
+
+			let z;
+			if( type == 'Links')
+				z = this.currentAngle();
+
+			if( ev.which == 1)
+				this._board.addElement(type, [name, this.selectedPlayer()], coords, z);
+			if( ev.which == 3)
+				this._board.removeElement(type, null, coords, z);
 		});
 
-		$('#selectMap').trigger('change');
+		this.changeMap('current');
+		this.setCurrentAngle('r');
+	}
+
+	/* ============= METHODS ============ */
+
+	/****** Players *********/
+
+	createPlayer(playerName, color) {
+
+		let player = $('<span/>');
+		player.addClass('player');
+		player.prop('title', playerName);
+		player.css('background-color', color);
+
+		player.on('dblclick', (ev) => {
+			this._askNewColor(playerName);
+		});
+		player.on('click', (ev) => {
+			this.selectPlayer( playerName );
+		});
+
+		$('#players').append(player);
+
+		return player;
+	}
+
+	selectedPlayer() {
+		return $('#players .player.selected').prop('title');
+	}
+
+	getPlayerIcon(playerName) {
+		return $(`#players .player[title="${playerName}"]`);
+	}
+
+	selectPlayer(playerName, ifNot = null ) {
+
+		$('#players .player').removeClass('selected');
+		let player = this.getPlayerIcon(playerName);
+
+		if( ! player.length ) {
+
+			if( ! ifNot ) // SHOULD NOT OCCURS
+				return;
+
+			player = this.getPlayerIcon(ifNot);
+		}
+
+		player.addClass('selected');
+		this._recolorElements( player.css('background-color') );
+	}
+
+	firstPlayer() {
+		return $('#players .player').first().prop('title');
+	}
+
+	/****** PLAYER COLOR *********/
+
+	_askNewColor(playerName) {
+
+		this.selectPlayer(playerName);
+		$('#player-color').focus();
+		$('#player-color').click();
+	}
+
+	_recolorElements(color) {
+
+		for(let elem of $('#select_Elements img') ) {
+
+			elem = $(elem);
+
+			let type = elem.attr('data-type');
+			let name = elem.attr('data-name');
+
+			let new_content = this._ressources[type][name].colorContent(color);
+			elem.attr('src', new_content);
+		}
+
+		this._updatePhantoms();
+		this._updateHighlights();
+	}
+
+	/****** MAPS ********/
+
+	currentMapName() {
+		return $('#selectMap').val();
+	}
+
+	changeMap(mapName = this.currentMapName() ) {
+
+		$('#selectMap').val(mapName);
+		$('#delete-btn').prop('disabled', mapName == 'current' || mapName.startsWith('built-in:') );
+
+		if( mapName == 'current') {
+			if( ! this._loadCurrent() )
+				this.changeMap('built-in:default');
+			return;
+		}
+
+		this._board.import( Board.maps[mapName] );
+	}
+
+	_modifySavedMaps( fct ) {
+		let maps = JSON.parse(localStorage.getItem('maps') ) || {};
+		fct(maps);
+		localStorage.setItem('maps', JSON.stringify(maps, null, 0));
 	}
 
 	_saveCurrent() {
@@ -441,11 +450,44 @@ export class Editor {
 			return false;
 
 		this._board.import(data);
-		this._updatePlayers();
 
 		return true;
 	}
 
+	selectedType() {
+
+		let activeTab = $('#select_Elements_menu > li > a.active');
+
+		return activeTab.attr('href').slice('#select_'.length);
+
+	}
+
+	selectedName() {
+		let type = this.selectedType();
+		if(type === 'Background')
+			return null;
+		return $(`#select_${type} .selected`).prop('id').slice(`Select_${type}-`.length);
+	}
+
+	selectType(type) {
+		$(`#select_Elements_menu a[href="#select_${type}"]`).tab('show');
+
+		this._updatePhantoms();
+		this._updateHighlights();
+	}
+
+	selectElement(name) {
+		
+		let type = this.selectedType();
+
+		$(`#select_${type} .selected`).removeClass('selected');
+		$(`#Select_${type}-${name}`).addClass('selected');
+
+		this._updatePhantoms();
+		this._updateHighlights();
+	}
+
+	/****** LAYERS ********/
 	_changeLayerLevel(layer_level) {
 
 		this._current_level = layer_level;
@@ -459,126 +501,165 @@ export class Editor {
 			this._canvas.showLayer(this._layers[i], i <= this._current_level && ! this._override_layers[this._layers[i]] );
 	}
 
-	selectedPlayer() {
-		return $('#players .player.selected').prop('title');
-	}
+	/****** Highlight/Phantoms ********/
 
-	_updatePlayers() {
+	_updateHighlights(new_pos = null) {
 
-		let selected = $('#players .player.selected').attr('title');
-
-		$('#players').empty();
-
-		let players =  this._board.players();
-
-		for(let name in players ) {
-
-			let color = players[name];
-
-			let parent = $('#players');
-
-			let player = $('<span/>');
-			player.addClass('player');
-			player.prop('title', name);
-
-			player.css('background-color', color);
-
-			player.on('dblclick', (ev) => {
-				
-				this._last_color_change = name;
-
-				$('#player-color').focus();
-				$('#player-color').click();
-
-			});
-
-			player.click( (ev) => {
-
-				$('#players .player').removeClass('selected');
-				player.addClass('selected');
-
-				let pthis = this;
-				$('#select_Elements img').each( function () {
-
-					let elem = $(this);
-
-					let type = elem.attr('data-type');
-					let name = elem.attr('data-name');
-
-					let new_content = pthis._ressources[type][name].colorContent( player.css('background-color') );
-					elem.attr('src', new_content);
-				});
-			});
-
-			parent.append(player);
+		if( new_pos === null ) {
+			this._canvas.clearHighlights();
+			this._prev_highlight = null;
+			new_pos = this._last_pos;
 		}
 
-		selected = $('#players .player[title="' + selected + '"');
+		if( ! new_pos )
+			return;
 
-		if( selected.length > 0)
-			selected.trigger('click');
-		else 
-			$('#players .player').first().trigger('click');
+		let nextHighlight = null;
+		let coords = this._canvas.PixelsToCoord(...new_pos);
+		if( coords ) {
+
+			let angle = [null, null];
+			if( this.selectedType() == 'Links' )
+				angle = this._computeAngle( this._canvas.PixelsToAngle(...new_pos) );
+
+			nextHighlight = [coords, ...angle];
+		}
+
+		if( this._prevHighlight ) {
+
+			if( ! nextHighlight
+				|| ! ElementsList.areKeysEqual(nextHighlight[0], this._prevHighlight[0])
+				|| nextHighlight[1] != this._prevHighlight[1]
+				|| nextHighlight[2] != this._prevHighlight[2]
+				) {
+
+				this._canvas.removeHighlight(...this._prevHighlight );
+				this._prevHighlight = null;
+			} else {
+				nextHighlight = null;
+			}
+		}
+
+		if( nextHighlight ) {
+			this._canvas.addHighlight(...nextHighlight);
+			this._prevHighlight = nextHighlight;
+		}
 	}
 
-	_showLinks() {
+	_updatePhantoms(new_pos = null) {
+
+		if( new_pos === null ) {
+			this._canvas.clearPhantomElements();
+			this._prev_phantoms = null;
+			new_pos = this._last_pos;
+		}
+
+		if( ! new_pos )
+			return;
+
+		let nextPhantom = null;
+		let coords = this._canvas.PixelsToCoord(...new_pos);
+		if( coords && this.selectedName() ) {
+
+			let name = this.selectedName();
+			let type = this.selectedType();
+			let owner = this.selectedPlayer();
+
+			nextPhantom = [type, [name, owner], coords];
+		}
+
+		if( this._prevPhantom ) {
+
+			if( ! nextPhantom
+				|| nextPhantom[0]   !== this._prevPhantom[0]
+				|| nextPhantom[1][0] != this._prevPhantom[1][0]
+				|| nextPhantom[1][1] != this._prevPhantom[1][1]
+				|| ! ElementsList.areKeysEqual(nextPhantom[2], this._prevPhantom[2])
+				) {
+
+				this._canvas.removePhantomElement(...this._prevPhantom );
+				this._prevPhantom = null;
+			} else {
+				nextPhantom = null;
+			}
+		}
+
+		if( nextPhantom ) {
+			this._canvas.addPhantomElement(...nextPhantom);
+			this._prevPhantom = nextPhantom;
+		}
+	}
+
+	_updateAngle(new_pos) {
+
+		if( ! new_pos )
+			return;
+
+		let angle = this._canvas.PixelsToAngle(...new_pos);
+
+		if( ! angle )
+			return;
+
+		angle = this._computeAngle( angle );
+		this.setCurrentAngle(angle);
+	}
+
+	_computeAngle(angle) {
+
+		let prec = 360/8;
+		let offset = prec/2;
+
+		angle = (angle - offset) % 360;
+
+		let beg_angle = Math.floor( angle / prec) * prec;
+		let end_angle = Math.ceil( angle / prec) * prec;
+
+
+		beg_angle = (beg_angle + offset) % 360;
+		end_angle = (end_angle + offset) % 360;
+
+		return [beg_angle, end_angle];
+	}
+
+	currentAngle() {
+		return this._lastAngle || 'r';
+	}
+
+	setCurrentAngle( angle ) {
+
+		let angles = {
+			'-22.5': 'r',
+			'337.5': 'r',
+			'22.5': 'rt',
+			'67.5': 't',
+			'112.5': 'lt',
+			'157.5': 'l',
+			'202.5': 'lb',
+			'247.5': 'b',
+			'292.5': 'rb'
+		};
+
+		if( typeof angle !== 'string')
+			angle = angles[angle[0]];
+
+		if(this._lastAngle == angle )
+			return;
+
+		this._lastAngle = angle;
 
 		$('#select_Links img').addClass('d-none');
-		$('#select_Links img.Links_' + this._lastAngle).removeClass('d-none');
+		$(`.Links_${angle}`).removeClass('d-none');
 
-		if( this._selectedElement && this._selectedElement[0] == 'Links') {
-
-			let newSelected = this._selectedElement[1].split('_');
-			newSelected[newSelected.length-1] = this._lastAngle;
-			newSelected = newSelected.join('_')
-			$('#select_Links img#Select_Links-' + newSelected).trigger('click');
-		}
+		let current = $('#select_Links .selected').attr('data-name');
+		current = current.split('_');
+		current[current.length - 1] = angle;
+		current = current.join('_');
+/*
+		if( this.selectedType() == 'Links' )
+			this.selectElement(current);
+		else {*/
+			$('#select_Links .selected').removeClass('selected');
+			$(`#Select_Links-${current}`).addClass('selected');
+		/*}*/
 	}
-}
-
-
-// https://stackoverflow.com/questions/13405129/javascript-create-and-save-file
-// Function to download data to a file
-function download(data, filename, type) {
-    var file = new Blob([data], {type: type});
-    if (window.navigator.msSaveOrOpenBlob) // IE10+
-        window.navigator.msSaveOrOpenBlob(file, filename);
-    else { // Others
-        var a = document.createElement("a"),
-                url = URL.createObjectURL(file);
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(function() {
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);  
-        }, 0); 
-    }
-}
-
-
-async function upload() {
-
-	let input = $('<input type="file" id="file-selector">');
-
-	$('body').append(input);
-	
-	let p = new Promise( (r) => {
-
-		input.on('change', () => {
-			
-			let file = event.target.files[0];
-			let filename = file.name.split('.').slice(0,-1).join('.');
-
-    		const reader = new FileReader();
-			reader.addEventListener('load', (event) => {
-				r([filename, event.target.result]);
-			});
-			reader.readAsText(file);
-		});
-		input.click();
-	});
-
-	return await p;
 }

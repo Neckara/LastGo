@@ -36,15 +36,11 @@ export class BoardCanvas {
 			this._fullDraw();
 		});
 
-		this._board.addEventListener('Board.SIZE_CHANGED', (ev) => {
+		this._board.addEventListener('Board.SIZE_CHANGED Board.IMPORTED', (ev) => {
 			this._fullDraw();
 		});
 
-		this._board.addEventListener('Board.ELEMENT_ADDED', (ev) => {
-			this._partialDrawElement(ev.data);
-		});
-
-		this._board.addEventListener('Board.ELEMENT_REMOVED', (ev) => {
+		this._board.addEventListener('Board.ELEMENT_ADDED Board.ELEMENT_REMOVED', (ev) => {
 			this._partialDrawElement(ev.data);
 		});
 
@@ -54,6 +50,7 @@ export class BoardCanvas {
 
 		this._board.addEventListener('Board.PLAYER_REMOVED', (ev) => {
 			//TODO REMOVE COLOR.
+			console.log('TODO : remove player');
 		});
 
 		this._fullDraw();

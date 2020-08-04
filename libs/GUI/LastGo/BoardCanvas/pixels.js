@@ -29,7 +29,12 @@ methods.PixelsToCoord = function (px, py) {
 // https://www.mathsisfun.com/polar-cartesian-coordinates.html
 methods.PixelsToAngle = function (px, py) {
 
-	let [tpx, tpy] = this._CoordToPixels( this.PixelsToCoord(px, py) );
+	let coords = this.PixelsToCoord(px, py);
+
+	if( ! coords )
+		return null;
+
+	let [tpx, tpy] = this._CoordToPixels( coords );
 
 	px -= tpx;
 	py -= tpy;

@@ -1,18 +1,19 @@
 import {ElementsList} from 'calc/LastGo/ElementsList';
+import {GameEvent, EvTarget} from 'GUI/Utils/EvTarget.js';
 
-class BoardEvent extends Event {
 
-	constructor( name, data ) {
-		super('Board.' + name);
-		this.data = data;
+class BoardEvent extends GameEvent {
+
+	constructor(name, data ) {
+		super('Board.' + name, data);
 	}
 }
 
-export class Board extends EventTarget {
+export class Board extends EvTarget {
 
 	constructor() {
 
-		super();
+		super(BoardEvent);
 
 		this._boardSize = [9,9];
 		this._elements = {};
@@ -31,7 +32,7 @@ export class Board extends EventTarget {
 
 		this._boardSize = [w, h];
 
-		this.dispatchEvent( new BoardEvent('SIZE_CHANGED') );
+		this.dispatchTargetEvent( 'SIZE_CHANGED' );
 	}
 
 	getElement(elem) {
@@ -77,12 +78,11 @@ export class Board extends EventTarget {
 			delete this._elements[type].get(idx)[z];
 		}
 
-		this.dispatchEvent( new BoardEvent('ELEMENT_REMOVED', {type: type, elem: null, idx: idx}) );
+		this.dispatchTargetEvent('ELEMENT_REMOVED', {type: type, elem: null, idx: idx});
 	}
 
 	clearElements() {
 		this._elements = {};
-
 		this.setBoardSize(...this.boardSize() ); // Force redraw h4ck.
 	}
 
@@ -102,7 +102,7 @@ export class Board extends EventTarget {
 			this._elements[type].get(idx)[z] = elem;
 		}
 
-		this.dispatchEvent( new BoardEvent('ELEMENT_ADDED', {type: type, elem: elem, idx: idx}) );
+		this.dispatchTargetEvent('ELEMENT_ADDED', {type: type, elem: elem, idx: idx});
 	}
 	
 
@@ -113,7 +113,7 @@ export class Board extends EventTarget {
 	modifyPlayer(name, color) {
 		this._players[name] = color;
 
-		this.dispatchEvent( new BoardEvent('PLAYER_MODIFIED', {name: name, color: color}) );
+		this.dispatchTargetEvent('PLAYER_MODIFIED', {name: name, color: color});
 
 		// Force element recoloring.		
 		for(let type in this._elements)
@@ -160,7 +160,7 @@ export class Board extends EventTarget {
 
 		delete this._players[name];
 
-		this.dispatchEvent(new BoardEvent('PLAYER_REMOVED', {name: name} ) );
+		this.dispatchTargetEvent('PLAYER_REMOVED', {name: name});
 
 		return true;
 	}
@@ -235,7 +235,8 @@ export class Board extends EventTarget {
 				this._elements[type].set(key, obj);
 			}
 
-		this.setBoardSize( ... json.board_size ); // Force redraw.
+		this._boardSize = json.board_size;
+		this.dispatchTargetEvent('IMPORTED');
 	}
 }
 
