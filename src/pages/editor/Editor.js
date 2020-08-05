@@ -55,6 +55,7 @@ export class Editor {
 			this._updateHighlights(new_pos);
 			this._updatePhantoms(new_pos);
 
+			this._last_pos = new_pos;
 		});
 
 
@@ -241,13 +242,13 @@ export class Editor {
 			let [file, data] = await upload();
 
 			let mapName = 'import:' + file;
-			let m = Board.maps[mapName] = JSON.parse(data);
-			this._modifySavedMaps( maps => maps[mapName] = m );
+			Board.maps[mapName] = JSON.parse(data);
+			this._modifySavedMaps( maps => maps[mapName] = Board.maps[mapName] );
 
-			if( ! $("#selectMap option[value='"+ map +"']") )
+			if( ! $("#selectMap option[value='"+ mapName +"']").length )
 				$('#selectMap').append( new Option(mapName, mapName) );
 
-			this.changeMap(map);
+			this.changeMap(mapName);
 		});
 
 

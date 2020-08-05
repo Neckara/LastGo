@@ -136,7 +136,6 @@ export class BoardCanvas {
 			this._waitingForPartialDraw = false;
 		}
 
-
 		if( this._partialLoadAllColored !== undefined )
 			await this._partialLoadAllColored;
 
@@ -149,7 +148,7 @@ export class BoardCanvas {
 		this._boardSize = this._board.boardSize();
 
 		for(let layer in this._layers) {
-			
+
 			this._canvas[layer].width = this._w;
 			this._canvas[layer].height = this._h;
 
@@ -163,6 +162,8 @@ export class BoardCanvas {
 			this._drawElements(type);
 
 		this._waitingForFulldraw = false;
+
+		this._board.dispatchTargetEvent('FULLY_REDRAWED', {});
 	}
 
 	_drawImage(type, img, owner, idx) {

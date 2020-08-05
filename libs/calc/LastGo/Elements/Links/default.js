@@ -1,22 +1,25 @@
+import {ElementsList} from '../../ElementsList.js';
+
+
 export default class Links {
 
-
-
-	static getNeighbours(name, x, y, rules, board, neighbours = new Set() ) {
+	static getNeighbours(context, [name, owner], idx, neighbours = new Set() ) {
 
 		let result = {
 			neighbours: neighbours,
-			visited: new Set([x + 'x' + y])
+			visited: new Set([ ElementsList.getIDX(idx) ])
 		};
 
-		Links.visit(result, name, x, y, rules, board);
+		Links.visit(context, [name, owner], idx, result);
 
 		return neighbours;
 	}
 
-	static visit(data, name, x, y, rules, board) {
+	static visit(context, [name, owner], idx, data) {
 
 		let direction = name.split('_').slice(-1)[0];
+
+		let [x, y] = ElementsList.getXY(idx);
 
 		if( direction[0] == 'l')
 			--x;
@@ -27,33 +30,26 @@ export default class Links {
 		if( direction[direction.length - 1] == 'b')
 			++y;
 
-		let new_pos = x + 'x' + y;
+		let new_pos = ElementsList.getIDX([x, y]);
 
-		if(data.visited.has(new_pos) )
+		if( data.visited.has(new_pos) )
 			return;
-		data.visited.add( new_pos );
+		data.visited.add(new_pos);
 
-		if( board.getElements('bases')[new_pos] !== undefined ) {
+		if( context.board.getElements('Bases').has(new_pos) ) {
 			data.neighbours.add(new_pos);
 			return;
 		}
 
-		let links = board.getElements('links')[new_pos];
-
-		if( links === undefined )
+		if( ! context.board.getElements('Links').has(new_pos) )
 			return;
 
-		if( typeof links === 'string')
-			links = [links];
-		else
-			links = Object.values(links);
+		let links = Object.values( context.board.getElements('Links').get(new_pos) );
 
-		for(let link of links) {
+		for(let [link_name, owner] of links) {
 
-			let link_name = link.split('@')[0];
-			let LINK = rules._getRuleFor('links', link_name);
-
-			LINK.visit(data, link_name, x, y, rules, board);
+			let LINK = context.rules._getRule('Links', link_name);
+			LINK.visit(context, [link_name, owner], new_pos, data);
 		}
 	}
 }

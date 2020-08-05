@@ -1,25 +1,29 @@
+import {ElementsList} from '../../ElementsList.js';
+
+
 export default class Bases {
 
 
-	static canPutPawn(player, x, y, rules, board) {
+	static canPutPawn(context, [name, player], idx) {
 
-		if( board.getElements('pawns')[x + 'x' + y] !== undefined )
+		if( context.board.getElements('Pawns').has(idx) )
 			return 'FULL';
 
-		let limits = Bases.limits(player, x, y, rules, board);
+		let limits = Bases.limits(context, player, idx);
 		
 		if( limits.freedoms.length > 0)
 			return;
 
+		//TODO EATED ENNEMIS UNI-DIRECTIONNAL LINK.
 		for(let enemy of limits.enemies) {
 
-			let enemy_limits = Bases.limits(...enemy, rules, board);
+			let enemy_limits = Bases.limits(context, ...enemy);
 
 			if( enemy_limits.freedoms.length > 1)
 				continue;
 
 			let free = enemy_limits.freedoms[0];
-			if( free[0] == x && free[1] == y )
+			if( ElementsList.areKeysEqual(free, idx) )
 				return;
 		}
 
@@ -27,162 +31,134 @@ export default class Bases {
 	}
 
 
-	static putPawn(consequencies, player, x, y, rules, board) {
+	static putPawn(context, type, [name, player], idx, consequencies) {
 
-		let limits = Bases.limits(player, x, y, rules, board);
+		let limits = Bases.limits(context, player, idx);
 
 		let to_eat = new Set();
 
 		for(let enemy of limits.enemies) {
 
-			let enemy_limits = Bases.limits(...enemy, rules, board);
+			let enemy_limits = Bases.limits(context, ...enemy); //TODO unidirectionnal eats...
 
 			if( enemy_limits.freedoms.length > 1)
 				continue;
 
 			let free = enemy_limits.freedoms[0];
-			if( free[0] == x && free[1] == y ) {
+			if( ElementsList.areKeysEqual(free, idx) ) {
 
-				to_eat.add( enemy[1] + 'x' + enemy[2] );
+				to_eat.add( ElementsList.getIDX(enemy[1]) );
 
 				for(let eat of enemy_limits.group)
-					to_eat.add(eat[0] + 'x' + eat[1]);
+					to_eat.add( ElementsList.getIDX(eat) );
 			}
 		}
 
 		for(let eat of to_eat) {
 
-			let base = board.getElements('bases')[eat];
-			let base_name = base.split('@')[0];
-			let BASE = rules._getRuleFor('bases', base_name);
-
-			let [x, y] = Array.from( eat.split('x'), e => parseInt(e) );
-
-			BASE.destroyPawn(player, consequencies, x, y, rules, board);
+			let BASE = context.rules._getRuleAt(eat);
+			BASE.destroyPawn(context, player, idx, consequencies);
 
 		}
-
-		return;
 	}
 
-	static points(player, x, y, rules, board) {
+	static points(context, player, idx) {
 
-		let pawn = board.getElements('pawns')[x + 'x' + y];
+		let points = 0;
 
-		let points = 1;
-		if(pawn !== undefined) {
-			let pawn_name = pawn.split('@')[0];
-			let PAWN = rules._getRuleFor('pawns', pawn_name);
+		if( context.board.getElements('Pawns').has(idx) ) {
 
-			points += PAWN.points(player, x, y, rules, board);
+			let PAWN = context.rules._getRuleAt('Pawns', idx);
+			points += PAWN.points(context, player, idx);
+		} else {
+			points += 1;
 		}
 
 		return points;
 	}
 
-	static destroyPawn(player, consequencies, x, y, rules, board) {
+	static destroyPawn(context, player, idx, consequencies) {
 
-		let pos = x + 'x' + y;
-		let pawn = board.getElements('pawns')[pos];
-		let pawn_name = pawn.split('@')[0];
-		let PAWN = rules._getRuleFor('pawns', pawn_name);
+		let PAWN = context.rules._getRuleAt('Pawns', idx);
 
-		let pawn_consequencies = PAWN.destroyPawn(player, x, y, rules, board);
+		let pawn_consequencies = PAWN.destroyPawn(context, player, idx);
 
 		for(let key in pawn_consequencies)
 			consequencies[key].push( ...pawn_consequencies[key] );
 	}
 
-	static limits(player, x, y, rules, board) {
+	static limits(context, player, idx) {
 
 		let result = {
 			player: player,
 			freedoms: new Set(),
 			group: new Set(),
 			enemies: new Set(),
-			visited: new Set([x + 'x' + y])
+			visited: new Set([ ElementsList.getIDX(idx) ])
 		};
 
-		Bases.visit(result, x, y, rules, board);
+		Bases.visit(context, idx, result);
 
-		result.freedoms = Array.from( [...result.freedoms], e => Array.from(e.split('x'), e => parseInt(e) ) );
-		result.group =    Array.from( [...result.group],    e => Array.from(e.split('x'), e => parseInt(e) ) );
+		result.freedoms = [...result.freedoms];
+		result.group =    [...result.group];
 
-		result.enemies = Array.from( [...result.enemies], e => {
-
-			e = e.split('@');
-			return [e[1], ...Array.from(e[0].split('x'), e => parseInt(e) )];
-		});
+		result.enemies = Array.from( [...result.enemies], e => [
+																	context.board.getElements('Pawns').get(e)[1],
+																	e]);
 
 		return result;
 	}
 
+	static visit(context, idx, data) { //TODO unidirectional links...
 
-	static visit(data, x, y, rules, board) {
-
-		let pos = x + 'x' + y;
-
-		let links = board.getElements('links')[pos];
-		if( links === undefined)
+		if( ! context.board.getElements('Links').has(idx) )
 			return;
 
-		if( typeof links === 'string')
-			links = [links];
-		else
-			links = Object.values(links);
+		let links = Object.values( context.board.getElements('Links').get(idx) );
 
 		let neighbours = new Set();
 
-		for(let link of links) {
+		for(let [name, owner] of links) {
 
-			let link_name = link.split('@')[0];
-			let LINK = rules._getRuleFor('links', link_name);
+			let LINK = context.rules._getRule('Links', name);
 
-			LINK.getNeighbours(link_name, x, y, rules, board, neighbours);
+			LINK.getNeighbours(context, [name, owner], idx, neighbours);
 		}
 
 		let to_visits = [];
 
-		for( let neighbour of neighbours ) {
+		for( let neighbour of neighbours ) { // freedom
 
-			if(  board.getElements('pawns')[neighbour] === undefined ) {
+			neighbour = ElementsList.getIDX(neighbour);
 
-				if( data.player == 'Neutral' ) {
+			if( ! context.board.getElements('Pawns').has(neighbour) ) {
 
-					if( ! data.visited.has( neighbour ) ) {
-						to_visits.push(neighbour);
-						data.group.add( neighbour );
-						data.visited.add( neighbour )
-					}
+				if( data.player != 'Neutral' ) {
+					data.freedoms.add(neighbour);
 					continue;
 				}
 
-				data.freedoms.add(neighbour);
-				continue;
+			} else { // enemy
+
+				let [name, player] = context.board.getElements('Pawns').get(neighbour);
+				
+				if( player != data.player) {
+					data.enemies.add(neighbour);
+					continue;
+				}
 			}
 
-			let player = board.getElements('pawns')[neighbour].split('@')[1];
-			
-			if( player != data.player) {
-				data.enemies.add(neighbour + '@' + player);
+			if( data.visited.has( neighbour ) )
 				continue;
-			}
 
-			if( ! data.visited.has( neighbour ) ) {
-				to_visits.push(neighbour);
-				data.group.add( neighbour );
-				data.visited.add( neighbour )
-			}
+			to_visits.push(neighbour);
+			data.group.add( neighbour);
+			data.visited.add( neighbour);
 		}
 
 		for(let to_visit of to_visits ) {
-
-			let base_name = to_visit.split('@')[0];
-			let BASE = rules._getRuleFor('bases', to_visit);
-
-			let [x, y] = Array.from( to_visit.split('x'), e => parseInt(e) );
-
-			BASE.visit(data, x, y, rules, board)
+			let BASE = context.rules._getRuleAt('Bases', to_visit);
+			BASE.visit(context, to_visit, data);
 		}
 	}
 }

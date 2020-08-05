@@ -3,11 +3,21 @@ body {
 }
 
 
-canvas { 
-  height: calc(100vh - 2em); 
+#canvas { 
+  height: calc(100vh - 2em);
   width: 100vw; 
   display: block;
+  position: relative;
   background-color: blue
+}
+
+#canvas > canvas {
+	height: 100%;
+	width: 100%;
+	display: block;
+	position: absolute;
+	top: 0px;
+	left: 0px;
 }
 
 #bar {

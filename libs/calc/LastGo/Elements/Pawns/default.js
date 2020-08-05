@@ -1,71 +1,60 @@
-export default class {
-	
-	static canPutPawn(player, x, y, rules, board) {
+import {ElementsList} from '../../ElementsList.js';
 
-		let base = board.getElements('bases')[x + 'x' + y];
-		if( base === undefined )
+export default class Pawns {
+	
+	static canPutPawn(context, [name, owner], idx) {
+
+		if( ! context.board.getElements('Bases').has(idx) )
 			return false;
 
-		let base_name = base.split('@')[0];
-		let BASE = rules._getRuleFor('bases', base_name);
+		let BASE = context.rules._getRuleAt('Bases', idx);
 
-		let reason = BASE.canPutPawn(player, x, y, rules, board);
+		let reason = BASE.canPutPawn(context, [name, owner], idx);
 
 		return ! reason;
 	}
 
 	static points() {
-		return 0;
+		return 1;
 	}
 
-	static destroyPawn(player, x, y, rules, board) {
+	static destroyPawn(context, player, idx) {
 
-		let pos = x + 'x' + y;
-		let [pawn, owner] = board.getElements('pawns')[pos].split('@');
+		let [pawn, owner] = context.board.getElements('Pawns').get(idx);
 
 		return {
 			added: [],
 			deleted: [
-				[
-					owner,
-					'pawns',
-					pawn,
-					x,
-					y
-				]
+				[ 'Pawns', [pawn, owner], idx ]
 			],
 			scores: [
-				[player, 1]
+				[player, Pawns.points()]
 			]
 		};
 	}
 
-	static putPawn(player, type, name, x, y, rules, board) {
+	static putPawn(context, type, [name, player], idx ) {
 
 		let consequencies = {
 			added: [
-				[player, type, name, x, y]
+				[type, [name, player], idx]
 			],
 			deleted: [],
 			scores: [],
 		}
 
-		let base = board.getElements('bases')[x + 'x' + y];
-		let base_name = base.split('@')[0];
-		let BASE = rules._getRuleFor('bases', base_name);
+		let BASE = context.rules._getRuleAt('Bases', idx);
 
-		BASE.putPawn(consequencies, player, x, y, rules, board);
+		BASE.putPawn(context, type, [name, player], idx, consequencies);
 
 		return consequencies;
 	}
 
-	static limits(player, x, y, rules, board) {
+	static limits(context, player, idx) {
 
-		let base = board.getElements('bases')[x + 'x' + y];
-		let base_name = base.split('@')[0];
-		let BASE = rules._getRuleFor('bases', base_name);
+		let BASE = context.rules._getRuleAt('Bases', idx);
 
-		return BASE.limits(player, x, y, rules, board);
+		return BASE.limits(context, player, idx);
 	}
 
 }

@@ -1,4 +1,4 @@
-export class GameEvent extends Event {
+export class Ev extends Event {
 
 	constructor(name, data ) {
 		super(name);
@@ -8,7 +8,7 @@ export class GameEvent extends Event {
 
 export class EvTarget extends EventTarget {
 
-	constructor(TargetEvent = GameEvent) {
+	constructor(TargetEvent = Ev) {
 		super();
 		this._TargetEvent = TargetEvent;
 	}

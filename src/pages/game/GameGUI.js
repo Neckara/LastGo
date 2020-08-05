@@ -1,6 +1,9 @@
 const $ = require('jquery');
 import {Board} from 'calc/LastGo/Board.js';
 import {Game} from 'calc/LastGo/Game.js';
+import {ElementsList} from 'calc/LastGo/ElementsList.js';
+
+import {download, upload} from 'GUI/Utils/Files.js';
 
 window.$ = $;
 
@@ -12,87 +15,89 @@ export class GameGUI {
 		this._game = game;
 		this._game_rules = game_rules;
 
-		let maps = JSON.parse(localStorage.getItem('maps') ) || {};
-		for(let map in maps)
-			Board.maps[map] = maps[map];
+		/****** GAME EVENTS ******/
 
+		this._game.addEventListener('Game.IMPORTED Game.STATE_CHANGED', () => {
 
+			let players = $('#players');
+			players.empty();
+
+			let scores = this._game.scores();
+
+			for(let [name, score, color] of scores)
+				this._addPlayer(name, score, color);
+
+			let current_player = this._game.currentPlayer();
+
+			players.children().removeClass('selected');
+			players.find('div[title="' + current_player + '"]').addClass('selected');
+		});
+
+		this._game.addEventListener('Game.STATE_CHANGED', () => {
+			this._saveCurrent();
+		});
+
+		/****** PUT PAWN ******/
+
+		// Put pawn
 		$('canvas').mouseup( (ev) => {
+
+			if( ev.which != 1 )
+				return;
 
 			if( this._game_rules.isEndOfGame() )
 				return;
 
-			let px = ev.pageX;
-			let py = ev.pageY - $('canvas').position().top;;
-			let coords = this._canvas.PixelsToCoord(px, py);
+			let coords = this._canvas.PixelsToCoord( ...this._posFromMouseEvent(ev) );
 
 			if(coords == null)
 				return;
-
-			if( ev.which != 3 && ev.which != 1)
-				return;
-
-			if( ev.which == 1) {
 				
-				if( this._game_rules.putPawn(this._game.currentPlayer(), 'pawns', 'default', ...coords) ) {
-					this._saveCurrent();
-					this._updateGame();
-				}				
-			}
+			this._game_rules.putPawn('Pawns', ['default', this._game.currentPlayer()], coords);
 		});
 
-		$('canvas').mousemove( (ev) => {
-
-			if( this._game_rules.isEndOfGame() )
-				return;
-
-			let px = ev.pageX;
-			let py = ev.pageY - $('canvas').position().top;
-			let coords = this._canvas.PixelsToCoord(px, py);
-
-			this._canvas.clearHighlights();
-			this._canvas.clearPhantomElements();
-
-			if(coords !== null) {
-
-				let players = this._game.players();
-
-				let current_player = this._game.currentPlayer();
-
-				let limits = this._game_rules.getLimits(current_player, ...coords);
-
-				if(limits) {
-
-					for(let freedom of limits.freedoms)
-						this._canvas.highlight(...freedom, 'rgba( 255, 255, 255, 0.25 )');
-					for(let friend of limits.group )
-						this._canvas.highlight(...friend, players[limits.player][1]);
-					for(let enemy of limits.enemies )
-						this._canvas.highlight(...enemy.slice(1), players[enemy[0]][1] );
-				}
-
-				this._canvas.highlight(...coords);
-
-				if( this._game_rules.canPutPawn(current_player, 'pawns', 'default', ...coords) ) {
-					this._canvas.addPhantomElement('pawns', 'default', current_player, ...coords);
-				}
-			}
-			
-			this._canvas.draw();
-		});
+		/****** MOUSE ACTIONS ******/
 
 		$('canvas').on("contextmenu", (ev) => {
 
-			let coords = this._canvas.PixelsToCoord(ev.pageX, ev.pageY - $('canvas').position().top);
+			let coords = this._canvas.PixelsToCoord( ...this._posFromMouseEvent(ev) );
 			if(coords != null)
 				ev.preventDefault();
 		});
 
-		$('#loadmap-select').on('change', () => {
+		$('canvas').mousemove( (ev) => {
 
-			this._game.changeMap(  $('#loadmap-select').val()  );
-			this._initGame();
-			this._saveCurrent();
+			let new_pos = this._posFromMouseEvent(ev);
+
+			this._updateHighlights(new_pos);
+			this._updatePhantoms(new_pos);
+
+			this._last_pos;
+		});
+		
+		this._game.addEventListener('Game.FULLY_REDRAWED Game.STATE_CHANGED', () => {
+			console.log('called');
+			this._updateHighlights();
+			this._updatePhantoms();
+		});
+
+		/****** Actions ******/
+
+		$('#new-btn').click( (ev) => {
+
+			ev.preventDefault();
+
+			let current_map = this._game.map();
+
+			let select = $('#loadmap-select');
+			select.empty();
+
+			for(let map in Board.maps)
+				select.append( new Option(map, map) );
+
+			select.val(current_map);
+
+			$('#newgame-modal').modal('show');
 		});
 
 		$('#export-btn').click( (ev) => {
@@ -109,39 +114,33 @@ export class GameGUI {
 
 			let [file, data] = await upload();
 
-			file = 'import:' + file;
-			Game.games[file] = JSON.parse(data);
+			let gameName = 'import:' + file;
+			Game.games[gameName] = JSON.parse(data);
+			this._modifySavedGames( games => games[gameName] = Game.games[gameName] );
 
-			$("#selectGame option[value='"+ file +"']").remove();
-			let current_option = new Option(file, file, true, true);
-			$('#selectGame').append( current_option );
-			$('#selectGame').trigger('change');
+			if( ! $("#selectGame option[value='"+ gameName +"']").length )
+				$('#selectGame').append( new Option(gameName, gameName) );
 
-			let games = JSON.parse(localStorage.getItem('games') ) || {};
-			games[file] = Game.games[file];
-			localStorage.setItem('games', JSON.stringify(games, null, 0));
+			this.setGame(gameName);
 		});
 
 		$('#delete-btn').click( (ev) => {
 
 			ev.preventDefault();
 
-			let game = $('#selectGame').val();
+			let game = this.currentGameName();
 
-			let games = JSON.parse(localStorage.getItem('games') ) || {};
-			delete games[game];
-			localStorage.setItem('games', JSON.stringify(games, null, 0));
+			this._modifySavedGames( games => delete games[game] );
 
 			$("#selectGame option[value='"+ game +"']").remove();
 
-			$('#selectGame').val('current');
-			$('#selectGame').trigger('change');
+			this.setGame('current');
 		});
 
 		$('#save-btn').click( (ev) => {
 
 			ev.preventDefault();
-			let game = $('#selectGame').val();
+			let game = this.currentGameName();
 
 			if( game == 'current' || game.startsWith('built-in:') || game.startsWith('import:') ) {
 				
@@ -151,21 +150,46 @@ export class GameGUI {
 
 				game = 'saved:' + game;
 
-				$("#selectGame option[value='"+ game +"']").remove();
-				$('#selectGame').append( new Option(game, game, true, true) );
-				$('#selectGame').val(game);
+				if( ! $("#selectGame option[value='"+ gameName +"']").length )
+					$('#selectGame').append( new Option(gameName, gameName) );
 
+				$('#selectGame').val(game);
 				$('#delete-btn').prop('disabled', game == 'current' || game.startsWith('built-in:') );
 			}
 
-			let games = JSON.parse(localStorage.getItem('games') ) || {};
-			games[game] = Game.games[game] = JSON.parse(this._game.export());
-			localStorage.setItem('games', JSON.stringify(games, null, 0));
+			Game.games[game] = JSON.parse(this._game.export());
+			this._modifySavedGames( games => games[game] = Game.games[game] );
 		});
 
-		let current_option = new Option('current', 'current', true, true);
-		$('#selectGame').append( current_option );
+		/****** History actions ******/
 
+		$('#pass-btn').click( (ev) => {
+			if( this._game_rules.pass( this._game.currentPlayer() ) );
+		});
+
+		$('#prev-btn').click( (ev) => {
+			this._game.prev();
+		});
+		$('#next-btn').click( (ev) => {
+			this._game.next();
+		});
+
+		/****** Change Map ******/
+
+		// Load Maps
+		let maps = JSON.parse(localStorage.getItem('maps') ) || {};
+		for(let map in maps)
+			Board.maps[map] = maps[map];
+
+		// Change Map.
+		$('#loadmap-select').on('change', () => {
+			this._game.changeMap(  $('#loadmap-select').val()  );
+		});
+
+		/****** Change Game ******/
+
+		let current_option = new Option('current', 'current');
+		$('#selectGame').append( current_option );
 
 		let games = JSON.parse(localStorage.getItem('games') ) || {};
 		for(let game in games)
@@ -175,67 +199,17 @@ export class GameGUI {
 			$('#selectGame').append( new Option(game, game) );
 
 		$('#selectGame').on('change', () => {
-
-			let selected = $('#selectGame').val();
-
-			$('#delete-btn').prop('disabled', selected == 'current' || selected.startsWith('built-in:') );
-
-			if( selected == 'current') {
-				
-				if( ! this._loadCurrent() ) {
-					$('#selectGame').val('built-in:default');
-					$('#selectGame').trigger('change');
-				}
-				return;
-			}
-
-			this._game.import( Game.games[selected] );
-			this._initGame();
+			this.setGame( this.currentGameName() );
 		});
 
-		$('#pass-btn').click( (ev) => {
+		/**********************/
 
-			if( this._game_rules.pass( this._game.currentPlayer() ) ) {
-
-				this._saveCurrent();
-				this._updateGame();
-			}
-		});
-
-		$('#prev-btn').click( (ev) => {
-			this._game.prev();
-			this._saveCurrent();
-
-			this._updateGame();
-		});
-		$('#next-btn').click( (ev) => {
-			this._game.next();
-			this._saveCurrent();
-
-			this._updateGame();
-		});
-
-		$('#new-btn').click( (ev) => {
-
-			ev.preventDefault();
-
-			let select = $('#loadmap-select');
-
-			let current_map = this._game.map();
-
-			select.empty();
-
-			for(let map in Board.maps)
-				select.append( new Option(map, map, map == current_map, map == current_map) );
-
-			$('#newgame-modal').modal('show');
-		});
-
-
-		
-		$('#selectGame').trigger('change');
+		this.setGame('current');
 	}
 
+	/*========== METHODS ===========*/
+
+	/***** Load/Save current *******/
 	_saveCurrent() {
 
 		let cur = $('#selectGame').val();
@@ -252,125 +226,192 @@ export class GameGUI {
 		if( ! data)
 			return false;
 
-
 		this._game.import(data);
-		this._initGame();
 
 		return true;
 	}
 
-	_updateGame() {
+	/******* *********/
+	_addPlayer(name, score, color) {
 
-		this._canvas.clearHighlights();
-		this._canvas.clearPhantomElements();
+		let player = $('<div/>');
+		player.addClass('player');
+		player.prop('title', name);
 
-		if(this._game_rules.isEndOfGame())
-			this._endOfGame();
+		let player_img = $('<span/>');
+		player_img.addClass('player_img');
+		player_img.css('background-color', color);
 
-		let players = $('#players');
-		let scores = this._game.scores();
+		player.append(player_img);
+
+		let score_txt = $('<span/>');
+		score_txt.addClass('score');
+		score_txt.text(`Score : ${score}`);
+		player.append(score_txt);
+		$('#players').append(player);
+	}
+
+	_modifySavedGames( fct ) {
+		let games = JSON.parse(localStorage.getItem('games') ) || {};
+		fct(games);
+		localStorage.setItem('games', JSON.stringify(games, null, 0));
+	}
+
+	setGame(game) {
+
+		$('#selectGame').val(game);
+		$('#delete-btn').prop('disabled', game == 'current' || game.startsWith('built-in:') );
+
+		if( game == 'current') {
+			
+			if( ! this._loadCurrent() )
+				this.setGame('built-in:default');
+			return;
+		}
+
+		this._game.import( Game.games[game] );
+	}
+
+	currentGameName() {
+		return $('#selectGame').val();
+	}
+	/****** Highlight/Phantoms ********/
+
+	_posFromMouseEvent(ev) {
+		return [
+			ev.pageX,
+			ev.pageY - $('#canvas').position().top
+		];
+	}
+
+	_endOfGameHighlights() {
+
+		let results = this._game_rules.finalResult();
+
+		let test = $('<div></div>');
+
+		for(let player in results ) {
+
+			let [color, cases] = results[player];
+
+			for(let i = 0; i < cases.length; ++i) {
+				let hcolor = color.slice(0,-2) + '80';
+				this._canvas.addHighlight( cases[i], hcolor );
+			}
+
+		}
+	}
+
+	_updateHighlights(new_pos = null) {
+
+		let isMouse = new_pos !== null;
+
+		if( !isMouse ) {
+			this._canvas.clearHighlights();
+			this._prev_highlight = null;
+			new_pos = this._last_pos;
+		}
+
+		if( this._game_rules.isEndOfGame() ) {
+			if( ! isMouse )
+				this._endOfGameHighlights();
+			return;
+		}
+
+		if( ! new_pos )
+			return;
+
+		let nextHighlight = this._canvas.PixelsToCoord(...new_pos);
+
+		if( this._prevHighlight ) {
+
+			if( ! nextHighlight
+				|| ! ElementsList.areKeysEqual(nextHighlight, this._prevHighlight)
+				|| ! isMouse
+				) {
+
+				if( isMouse )
+					this._canvas.clearHighlights();
+				this._prevHighlight = null;
+			} else {
+				nextHighlight = null;
+			}
+		}
+
+		if( nextHighlight ) {
+			this._neighboursHighlight(nextHighlight);
+			this._prevHighlight = nextHighlight;
+		}
+	}
+
+	_neighboursHighlight(idx) {
+
+		let players = this._game.players();
 
 		let current_player = this._game.currentPlayer();
 
-		for(let [name, score, color] of scores)
-			players.find('div[title="' + name + '"] .score').text('Score:' + score);
+		let limits = this._game_rules.getLimits(current_player, idx);
 
-		players.children().removeClass('selected');
-		players.find('div[title="' + current_player + '"]').addClass('selected');
+		if(limits) {
 
-		this._canvas.draw();
-	}
-
-	_initGame() {
-
-		let players = $('#players');
-		players.empty();
-
-		let scores = this._game.scores();
-
-		for(let [name, score, color] of scores) {
-
-			let player = $('<div/>');
-			player.addClass('player');
-			player.prop('title', name);
-
-			let player_img = $('<span/>');
-			player_img.addClass('player_img');
-			player_img.css('background-color', color);
-
-			player.append(player_img);
-
-			let score = $('<span/>');
-			score.addClass('score');
-			player.append(score);
-			players.append(player);
+			for(let freedom of limits.freedoms)
+				this._canvas.addHighlight(freedom, 'rgba( 255, 255, 255, 0.25 )');
+			for(let friend of limits.group )
+				this._canvas.addHighlight(friend, players[limits.player][1]);
+			for(let enemy of limits.enemies )
+				this._canvas.addHighlight(enemy[1], players[enemy[0]][1] );
 		}
-		
-		this._updateGame();
+
+		this._canvas.addHighlight(idx);
 	}
 
-	_endOfGame() {
+	_updatePhantoms(new_pos = null) {
 
-
-		let results = this._game_rules.finalResult();
-		for(let player in results ) {
-
-			let res = results[player];
-			let color = res[0];
-
-			for(let i = 0; i < res[1].length; ++i)
-				this._canvas.highlight( ...res[1][i], color );
-
-
+		if( new_pos === null ) {
+			this._canvas.clearPhantomElements();
+			this._prev_phantoms = null;
+			new_pos = this._last_pos;
 		}
-		console.log('end of game');
+
+		if( this._game_rules.isEndOfGame() )
+			return;
+
+		if( ! new_pos )
+			return;
+
+		let nextPhantom = null;
+		let coords = this._canvas.PixelsToCoord(...new_pos);
+		if( coords ) {
+
+			let name = 'default';
+			let type = 'Pawns';
+			let owner = this._game.currentPlayer();
+
+			nextPhantom = [type, [name, owner], coords];
+
+			if( ! this._game_rules.canPutPawn(...nextPhantom) )
+				nextPhantom = null;
+		}
+
+		if( this._prevPhantom ) {
+
+			if( ! nextPhantom
+				|| nextPhantom[0]   !== this._prevPhantom[0]
+				|| nextPhantom[1][0] != this._prevPhantom[1][0]
+				|| nextPhantom[1][1] != this._prevPhantom[1][1]
+				|| ! ElementsList.areKeysEqual(nextPhantom[2], this._prevPhantom[2])
+				) {
+
+				this._canvas.removePhantomElement(...this._prevPhantom );
+				this._prevPhantom = null;
+			} else {
+				nextPhantom = null;
+			}
+		}
+
+		if( nextPhantom ) {
+			this._canvas.addPhantomElement(...nextPhantom);
+			this._prevPhantom = nextPhantom;
+		}
 	}
-}
-
-
-
-// https://stackoverflow.com/questions/13405129/javascript-create-and-save-file
-// Function to download data to a file
-function download(data, filename, type) {
-    var file = new Blob([data], {type: type});
-    if (window.navigator.msSaveOrOpenBlob) // IE10+
-        window.navigator.msSaveOrOpenBlob(file, filename);
-    else { // Others
-        var a = document.createElement("a"),
-                url = URL.createObjectURL(file);
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(function() {
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);  
-        }, 0); 
-    }
-}
-
-
-async function upload() {
-
-	let input = $('<input type="file" id="file-selector">');
-
-	$('body').append(input);
-	
-	let p = new Promise( (r) => {
-
-		input.on('change', () => {
-			
-			let file = event.target.files[0];
-			let filename = file.name.split('.').slice(0,-1).join('.');
-
-    		const reader = new FileReader();
-			reader.addEventListener('load', (event) => {
-				r([filename, event.target.result]);
-			});
-			reader.readAsText(file);
-		});
-		input.click();
-	});
-
-	return await p;
 }

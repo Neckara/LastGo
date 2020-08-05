@@ -1,9 +1,25 @@
 import {Board} from 'calc/LastGo/Board.js';
 
-export class Game {
+import {Ev, EvTarget} from 'GUI/Utils/EvTarget.js';
+
+
+class GameEvent extends Ev {
+
+	constructor(name, data ) {
+		super('Game.' + name, data);
+	}
+}
+
+export class Game extends EvTarget {
 
 	constructor(board) {
+		super(GameEvent);
 		this._board = board;
+
+		this._board.addEventListener('Board.FULLY_REDRAWED', () => {
+			this.dispatchTargetEvent('FULLY_REDRAWED');
+		});
+
 	}
 
 	hasIdenticalState(action) {
@@ -27,34 +43,10 @@ export class Game {
 		return states.has( simulate.export(true) );
 	}
 
-	_reset() {
-
-		this._board.import( Board.maps[this._map] );
-
-		this._scores = Array.from( Object.entries(this._board.players()).filter(e => e[0] != 'Neutral'), e => [e[0], 0, e[1]]);
-
-		this._players = {};
-		for(let i = 0; i < this._scores.length; ++i)
-			this._players[ this._scores[i][0] ] = [i, this._scores[i][2]];
-
-		let next_player = this._scores[0];
-
-		this._history = [{
-				action: { type: 'start' },
-				consequencies: {
-					added: [],
-					deleted: [],
-					scores: [],
-					next_player: next_player[0]
-				}
-			}];
-		this._cur = 0;
-		this._states = new Set();
-	}
-
 	isEndOfGame() {
 		return this._history[this._cur].action.type === 'end';
 	}
+
 	allPreviousPassed() {
 
 		if(this._cur < this._scores.length - 1) // because first one is start
@@ -105,6 +97,10 @@ export class Game {
 	}
 
 	setCur(cur) {
+		return this._setCur(cur, false);
+	}
+
+	_setCur(cur, _imported) {
 
 		if( cur < 0)
 			return false;
@@ -129,18 +125,55 @@ export class Game {
 			if( direction == -1)
 				this._cur += direction;
 		}
+
+		if( ! _imported )
+			this.dispatchTargetEvent('STATE_CHANGED', {});
 		
 		return true;
 	}
 
 	changeMap(map) {
+		return this._changeMap(map);
+	}
 
-		this._map = map;		
+	_changeMap(map, _history = null, _new_cur = 0) {
+
+		this._map = map;
 		this._reset();
+
+		if( _history )
+			this._history = _history;
+
+		this._setCur(_new_cur, !!_history);
 	}
 
 	map() {
 		return this._map;
+	}
+
+	_reset() {
+
+		this._board.import( Board.maps[this._map] );
+
+		this._scores = Array.from( Object.entries(this._board.players()).filter(e => e[0] != 'Neutral'), e => [e[0], 0, e[1]]);
+
+		this._players = {};
+		for(let i = 0; i < this._scores.length; ++i)
+			this._players[ this._scores[i][0] ] = [i, this._scores[i][2]];
+
+		let next_player = this._scores[0];
+
+		this._history = [{
+				action: { type: 'start' },
+				consequencies: {
+					added: [],
+					deleted: [],
+					scores: [],
+					next_player: next_player[0]
+				}
+			}];
+		this._cur = 0;
+		this._states = new Set();
 	}
 
 	neutralColor() {
@@ -176,11 +209,9 @@ export class Game {
 		if( typeof data == 'string' )
 			data = JSON.parse(data);
 
-		this.changeMap( data.map );
-		if(data.history) {
-			this._history = data.history;
-			this.setCur( data.cur );
-		}
+		this._changeMap( data.map, data.history, data.cur );
+
+		this.dispatchTargetEvent('IMPORTED', {});
 	}
 }
 

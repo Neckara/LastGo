@@ -1,8 +1,8 @@
 import {ElementsList} from 'calc/LastGo/ElementsList';
-import {GameEvent, EvTarget} from 'GUI/Utils/EvTarget.js';
+import {Ev, EvTarget} from 'GUI/Utils/EvTarget.js';
 
 
-class BoardEvent extends GameEvent {
+class BoardEvent extends Ev {
 
 	constructor(name, data ) {
 		super('Board.' + name, data);
@@ -111,6 +111,10 @@ export class Board extends EvTarget {
 	}
 
 	modifyPlayer(name, color) {
+
+		if( color.length == 7)
+			color = color + 'ff';
+
 		this._players[name] = color;
 
 		this.dispatchTargetEvent('PLAYER_MODIFIED', {name: name, color: color});

@@ -20,13 +20,14 @@ $( async () => {
 
 	await Ressources.loadAllDefaults();
 
-	let canvas = $('canvas');
+	let canvas = $('#canvas');
 
 	let board = new Board();
+	let boardCanvas = new BoardCanvas( board, canvas, Ressources.index);
+	boardCanvas.showLayer('Grid', false);
+
 	let game = new Game(board);
 	let game_rules = new GameRules(game, board);
-	let boardCanvas = new BoardCanvas( board, canvas, Ressources.index, 0 );
-
 
 	let gg = new GameGUI(game, game_rules, boardCanvas);
 });

@@ -1,3 +1,5 @@
+import {ElementsList} from './ElementsList.js';
+
 export class GameRules {
 
 	constructor(game, board) {
@@ -6,54 +8,36 @@ export class GameRules {
 		this._game = game;
 	}
 
-	_getRuleFor(type, name) {
+	getLimits(current_player, idx) {
 
-		let rule = GameRules.rules[type][name];
-		if(rule)
-			return rule;
+		if( this._board.getElements('Pawns').has(idx) ) {
 
-		return GameRules.rules[type]['built-in:default'];
-	}
-
-	getLimits(current_player, x, y) {
-
-		let pawn = this._board.getElements('pawns')[x + 'x' + y];
-		if( pawn !== undefined ) {
-			let [name, player] = pawn.split('@');
-			let PAWN = this._getRuleFor('pawns', name);
-			return PAWN.limits(player, x, y, this, this._board);
+			let [name, player] = this._board.getElements('Pawns').get(idx);
+			let PAWN = this._getRule('Pawns', name);
+			return PAWN.limits(this._context(), player, idx);	
 		}
 
-		let base = this._board.getElements('bases')[x + 'x' + y];
-		if( base === undefined)
+		if( ! this._board.getElements('Bases').has(idx) )
 			return false;
 
-		let base_name = base.split('@')[0];
-		let BASE = this._getRuleFor('bases', base_name);
+		let BASE = this._getRuleAt('Bases', idx);
 
-		return BASE.limits(current_player, x, y, this, this._board);
+		return BASE.limits(this._context(), current_player, idx);
 	}
 
-	canPutPawn(owner, type, name, x, y, z = null) {
+	canPutPawn(type, [name, owner], idx, z = null) {
 
 		if( this.isEndOfGame() )
 			return false;
 
-		if( type != 'pawns')
-			return false;
-		if( z !== null)
+		if( type != 'Pawns' || z !== null || owner != this._game.currentPlayer() )
 			return false;
 
-		let currentPlayer = this._game.currentPlayer();
-		if( owner != currentPlayer )
+		let PAWN = this._getRule('Pawns', name);
+		if( ! PAWN.canPutPawn(this._context(), [name, owner], idx) )
 			return false;
 
-		let PAWN = this._getRuleFor('pawns', name);
-
-		if( ! PAWN.canPutPawn(currentPlayer, x, y, this, this._board) )
-			return false;
-
-		let simulate = this.putPawn(owner, type, name, x, y, z, true);
+		let simulate = this.putPawn(type, [name, owner], idx, z, true);
 
 		return simulate;
 	}
@@ -62,28 +46,31 @@ export class GameRules {
 
 		let currentPlayer = this._game.currentPlayer();
 
+		let players = this._game.players();
 		let scores = this._game.scores();
-		let idx = scores.findIndex( e => e[0] == currentPlayer );
-		idx = (idx + 1) % scores.length;
+
+		let idx = (players[currentPlayer][0] + 1) % scores.length;
 		
 		return scores[idx][0];
 	}
 
-	putPawn(owner, type, name, x, y, z = null, simulate = false) {
+	putPawn(type, [name, owner], idx, z = null, simulate = false) {
 
-		if( ! simulate && ! this.canPutPawn(owner, type, name, x, y, z) )
+		if( ! simulate && ! this.canPutPawn(type, [name, owner], idx, z) )
 			return false;
 
-		let PAWN = this._getRuleFor('pawns', name);
-		let consequencies = PAWN.putPawn(owner, type, name, x, y, this, this._board);
+		let PAWN = this._getRule('Pawns', name);
+		let consequencies = PAWN.putPawn(this._context(), type, [name, owner], idx);
 
 		let action = {
 			action: {
 				type: 'put',
-				owner: owner,
-				type: type,
-				name: name,
-				pos: [x, y]
+				what: {
+					type: type,
+					name: name,
+					player: owner
+				},
+				where: idx
 			},
 			consequencies: {
 				...consequencies,
@@ -106,38 +93,37 @@ export class GameRules {
 		let size = this._board.boardSize();
 
 		let result = {};
+		for(let player in this._game.players() )
+			result[player] = [];
+		result['Neutral'] = [];
 
 		for(let i = 0; i < size[0]; ++i)
 			for(let j = 0; j < size[0]; ++j) {
 
-				let elem = this._board.getElements('pawns')[i + 'x' + j];
-				if( elem !== undefined ) {
-					elem = elem.split('@')[1];
+				let idx = ElementsList.getIDX([i,j]); // optimize
 
-					result[elem] = result[elem] || [];
-
-					result[elem].push([i,j]);
+				if( this._board.getElements('Pawns').has(idx) ) {
+					let [name, owner] = this._board.getElements('Pawns').get(idx);
+					result[owner].push(idx);
 					continue;
 				}
-
-				elem = this._board.getElements('bases')[i + 'x' + j];
-				if( elem === undefined )
+				
+				if( ! this._board.getElements('Bases').has(idx) )
 					continue;
 
-				elem = elem.split('@')[1];
+				let [name, owner] = this._board.getElements('Bases').get(idx);
 
-				if(elem == 'Neutral') {
+				if(owner == 'Neutral') {
 
-					let limits = this.getLimits('Neutral', i, j );
+					let limits = this.getLimits('Neutral', idx );
 
 					let others = [...new Set([... Array.from(limits.enemies, e => e[0])])];
 				
 					if(others.length == 1)
-						elem = others[0];
+						owner = others[0];
 				}
 
-				result[elem] = result[elem] || [];
-				result[elem].push([i,j]);
+				result[owner].push(idx);
 			}
 
 		return result;
@@ -174,12 +160,10 @@ export class GameRules {
 
 				let sum = 0;
 
-				for(let pos of final[player] ) {
+				for(let idx of final[player] ) {
 
-					let base = this._board.getElements('bases')[ pos[0] + 'x' + pos[1] ];
-					let base_name = base.split('@')[0];
-					let BASE = this._getRuleFor('bases', base_name);
-					sum += BASE.points(player, pos[0], pos[1], this, this._board);
+					let BASE = this._getRuleAt('Bases', idx);
+					sum += BASE.points(this._context(), player, idx);
 				}
 
 				scores[player] = sum;
@@ -210,6 +194,32 @@ export class GameRules {
 
 		return true;
 	}
+
+
+
+
+	_context() {
+		return {
+			rules: this,
+			board: this._board
+		}
+	}
+
+	_getRule(type, name) {
+
+		let rule = GameRules.rules[type][name];
+		if(rule)
+			return rule;
+
+		return GameRules.rules[type]['built-in:default'];
+	}
+
+	_getRuleAt(type, idx) {
+
+		let [name, owner] = this._board.getElements(type).get(idx);
+
+		return this._getRule(type, name);
+	}
 }
 
 
@@ -221,7 +231,7 @@ GameRules.rules = {};
 
 		let name = key.slice(2,-3).split('/');
 
-		let type = name[0].toLowerCase();
+		let type = name[0];
 		name = name.slice(1).join('.');
 
 		GameRules.rules[type] = GameRules.rules[type] || {};
