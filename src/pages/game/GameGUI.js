@@ -128,6 +128,9 @@ export class GameGUI {
 
 			ev.preventDefault();
 
+			if( ! confirm('Are you sure you want to delete this Game ?') )
+				return;
+
 			let game = this.currentGameName();
 
 			delete this.Game.games[game];

@@ -185,12 +185,20 @@ export class Editor {
 		/****** ACTIONS ******/
 		$('#clear-btn').click( (ev) => {
 			ev.preventDefault();
+
+			if( ! confirm('Are you sure you wants to clear this Map ?') )
+				return;
+
 			this._board.clearElements();
 		});
 
 		$('#delete-btn').click( (ev) => {
 
 			ev.preventDefault();
+
+			if( ! confirm('Are you sure you wants to delete this Map ?') )
+				return;
+
 
 			let map = this.currentMapName();
 
