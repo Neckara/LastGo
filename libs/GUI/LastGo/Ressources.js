@@ -49,6 +49,12 @@ export class Ressources {
 		return this._colored[owner].image();
 	}
 
+	unloadUnusedColored(used_players) {
+
+		for(let owner in this._colored )
+			if( ! used_players[owner] )
+				delete this._colored[owner];
+	}
 
 	static async loadAllDefaults() {
 
@@ -77,6 +83,14 @@ export class Ressources {
 					promises.push( index[type][name].loadColored(player, players[player]) );
 
 		await Promise.all(promises);
+	}
+
+	static unloadUnusedColored(index, used_players) {
+
+		for(let type in index)
+			for(let name in index[type])
+				index[type][name].unloadUnusedColored(used_players);
+
 	}
 
 	colorContent( new_color, targetColor = '#000080') {

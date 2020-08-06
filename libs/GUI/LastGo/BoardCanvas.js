@@ -49,8 +49,9 @@ export class BoardCanvas {
 		});
 
 		this._board.addEventListener('Board.PLAYER_REMOVED', (ev) => {
-			//TODO REMOVE COLOR.
-			console.log('TODO : remove player');
+			
+			delete this._players[ev.data.name];
+			this._unloadUnusedColored();
 		});
 
 		this._fullDraw();
@@ -122,6 +123,10 @@ export class BoardCanvas {
 		this._waitingForPartialDraw = false;
 	}
 
+	_unloadUnusedColored() {
+		Ressources.unloadUnusedColored(this._ressources, this._players);
+	}
+
 	async _fullDraw() {
 
 		if( this._waitingForFulldraw )
@@ -142,6 +147,8 @@ export class BoardCanvas {
 		let missing_players;
 		while( ! $.isEmptyObject(missing_players = this._missingPlayers() ) )
 			await Ressources.loadAllColored(this._ressources, missing_players );
+
+		this._unloadUnusedColored();
 
 		this._w = this._target.width();
 		this._h = this._target.height();
