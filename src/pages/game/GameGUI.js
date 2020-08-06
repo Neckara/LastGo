@@ -130,6 +130,7 @@ export class GameGUI {
 
 			let game = this.currentGameName();
 
+			delete this.Game.games[game];
 			this._modifySavedGames( games => delete games[game] );
 
 			$("#selectGame option[value='"+ game +"']").remove();

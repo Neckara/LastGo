@@ -194,6 +194,7 @@ export class Editor {
 
 			let map = this.currentMapName();
 
+			delete Board.maps[map];
 			this._modifySavedMaps( (maps) => delete maps[map] );
 			$("#selectMap option[value='"+ map +"']").remove();
 
